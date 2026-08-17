@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>仁龍段商圈管理</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f1117;--sf:#181c27;--sf2:#1e2333;--sf3:#252b3d;
+  --bd:#2d3348;--bd2:#3a4260;
+  --ac:#4f8ef7;--ac2:#3d7ae8;
+  --tx:#dde2f0;--tx2:#9ba4be;--tx3:#5d6785;
+  --V:#2ecc8f;--U:#4a5578;--C:#f0a500;--R:#9b72f5;--B:#e85d5d;--S:#38bdf8;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:-apple-system,'Noto Sans TC',sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;}
+
+/* Header */
+.hd{background:var(--sf);border-bottom:1px solid var(--bd);padding:0 12px;height:48px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:100;}
+.hd-title{font-size:14px;font-weight:700;color:var(--ac);flex:1;}
+.hd-sync{font-size:10px;color:var(--tx3);display:flex;align-items:center;gap:4px;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--U);flex-shrink:0;}
+.sync-dot.ok{background:var(--V);}
+.sync-dot.loading{background:var(--C);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hd-stats{display:flex;gap:4px;}
+.hs{background:var(--sf2);border:1px solid var(--bd);border-radius:20px;padding:2px 7px;font-size:10px;color:var(--tx2);display:flex;align-items:center;gap:3px;}
+.hs .dot{width:6px;height:6px;border-radius:50%;}
+
+/* Tabs */
+.tabs{background:var(--sf);border-bottom:1px solid var(--bd);display:flex;flex-shrink:0;}
+.tab{flex:1;padding:9px 4px;font-size:12px;font-weight:600;background:none;border:none;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;transition:color .15s;}
+.tab.active{color:var(--ac);border-bottom-color:var(--ac);}
+
+/* Filter bar */
+.fbar{background:var(--sf);border-bottom:1px solid var(--bd);padding:6px 10px;display:flex;gap:6px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.fbar::-webkit-scrollbar{display:none;}
+.srch{flex:1;min-width:90px;background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:5px 10px;color:var(--tx);font-size:13px;outline:none;}
+.srch:focus{border-color:var(--ac);}
+.fb{flex-shrink:0;background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:4px 9px;color:var(--tx2);font-size:11px;cursor:pointer;white-space:nowrap;font-weight:500;}
+.fb.active{background:var(--ac);border-color:var(--ac);color:#fff;}
+
+/* Map */
+#mv{flex:1;position:relative;display:none;}
+#mv.active{display:block;}
+#map{height:100%;width:100%;}
+
+/* Map controls */
+.mcp{position:absolute;top:10px;left:10px;z-index:500;display:flex;flex-direction:column;gap:7px;}
+.cg{background:var(--sf);border:1px solid var(--bd);border-radius:10px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.5);}
+.cr{display:flex;align-items:center;padding:8px 12px;gap:8px;cursor:pointer;border-bottom:1px solid var(--bd);font-size:12px;color:var(--tx2);-webkit-tap-highlight-color:transparent;}
+.cr:last-child{border-bottom:none;}
+.cr.active{color:var(--ac);font-weight:600;}
+.cchk{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--bd2);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.cr.active .cchk{background:var(--ac);border-color:var(--ac);}
+.cchk::after{content:'✓';font-size:9px;color:#fff;display:none;}
+.cr.active .cchk::after{display:block;}
+.mab{background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:8px 13px;font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;align-items:center;gap:6px;-webkit-tap-highlight-color:transparent;}
+.mab:active{opacity:.8;}
+
+/* Zoom tip */
+#ztip{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(15,17,23,.9);border:1px solid var(--ac);border-radius:12px;padding:10px 18px;z-index:400;font-size:12px;color:var(--ac);text-align:center;pointer-events:none;transition:opacity .4s;backdrop-filter:blur(8px);}
+
+/* Legend */
+.lgd{position:absolute;bottom:50px;right:10px;z-index:400;background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:9px 12px;box-shadow:0 4px 16px rgba(0,0,0,.5);}
+.li{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--tx2);margin-bottom:4px;}
+.li:last-child{margin-bottom:0;}
+.ld{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* Bottom sync bar on map */
+.map-bottom{position:absolute;bottom:0;left:0;right:0;z-index:400;background:var(--sf);border-top:1px solid var(--bd);padding:7px 12px;display:flex;align-items:center;gap:8px;}
+.map-bottom span{font-size:11px;color:var(--tx2);flex:1;}
+.mb-btn{border:none;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;}
+.mb-btn.pri{background:var(--ac);color:#fff;}
+.mb-btn.sec{background:var(--sf2);color:var(--tx2);border:1px solid var(--bd);}
+
+/* Grid */
+#gv{flex:1;overflow-y:auto;display:none;}
+#gv.active{display:block;}
+.gi{padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:7px;}
+.lc{background:var(--sf2);border:1.5px solid var(--bd);border-radius:10px;padding:9px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;min-height:78px;position:relative;overflow:hidden;transition:transform .1s;-webkit-tap-highlight-color:transparent;}
+.lc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
+.lc.V{border-color:rgba(46,204,143,.25);}.lc.V::before{background:var(--V);}
+.lc.U::before{background:var(--U);}
+.lc.C{border-color:rgba(240,165,0,.25);}.lc.C::before{background:var(--C);}
+.lc.R{border-color:rgba(155,114,245,.25);}.lc.R::before{background:var(--R);}
+.lc.B{border-color:rgba(232,93,93,.25);}.lc.B::before{background:var(--B);}
+.lc.S{border-color:rgba(56,189,248,.25);}.lc.S::before{background:var(--S);}
+.lc:active{transform:scale(.96);}
+.ln{font-size:12px;font-weight:700;text-align:center;line-height:1.2;color:var(--tx);}
+.lname{font-size:10px;color:var(--tx2);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;}
+.ltag{font-size:9px;padding:1px 6px;border-radius:4px;font-weight:700;}
+.tV{background:rgba(46,204,143,.15);color:var(--V);}
+.tU{background:rgba(74,85,120,.15);color:var(--tx3);}
+.tC{background:rgba(240,165,0,.15);color:var(--C);}
+.tR{background:rgba(155,114,245,.15);color:var(--R);}
+.tB{background:rgba(232,93,93,.15);color:var(--B);}
+.tS{background:rgba(56,189,248,.15);color:var(--S);}
+.empty{text-align:center;color:var(--tx3);padding:40px 20px;font-size:13px;grid-column:1/-1;}
+
+/* Detail Panel */
+#dp{position:fixed;bottom:0;left:0;right:0;background:var(--sf);border-top:1px solid var(--bd);border-radius:20px 20px 0 0;z-index:2000;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);max-height:80dvh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 -12px 40px rgba(0,0,0,.6);}
+#dp.open{transform:translateY(0);}
+.dh{height:20px;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;}
+.dh::after{content:'';width:36px;height:4px;background:var(--bd2);border-radius:2px;}
+.ds{overflow-y:auto;padding:0 16px 24px;flex:1;}
+
+/* Detail header */
+.d-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;}
+.d-lot-num{font-size:22px;font-weight:800;color:var(--ac);line-height:1;}
+.d-owner{font-size:15px;font-weight:600;color:var(--tx);margin-top:2px;}
+.d-srow{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px;}
+.dbadge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+
+/* Info grid */
+.ig{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px;}
+.ic{background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:9px 11px;}
+.ic.full{grid-column:1/-1;}
+.il{font-size:10px;color:var(--tx3);margin-bottom:2px;font-weight:600;letter-spacing:.2px;}
+.iv{font-size:13px;font-weight:600;color:var(--tx);line-height:1.4;}
+.iv.price{font-size:15px;color:var(--C);font-weight:800;}
+
+/* Progress card */
+.prog-card{background:var(--sf2);border:1px solid var(--bd2);border-radius:10px;padding:10px 12px;margin-bottom:12px;}
+.prog-label{font-size:10px;color:var(--tx3);margin-bottom:5px;font-weight:600;letter-spacing:.2px;}
+.prog-text{font-size:13px;color:var(--tx);line-height:1.5;}
+
+.d-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px;}
+.da{padding:11px;border-radius:12px;font-size:13px;font-weight:700;cursor:pointer;border:none;text-align:center;-webkit-tap-highlight-color:transparent;}
+.da.pri{background:var(--ac);color:#fff;}
+.da.sec{background:var(--sf2);border:1.5px solid var(--bd);color:var(--tx);}
+.d-full-btn{margin-top:8px;width:100%;padding:9px;background:var(--sf2);border:1px solid var(--bd);border-radius:10px;color:var(--tx2);font-size:12px;cursor:pointer;font-weight:600;}
+
+/* Edit Modal */
+#em{position:fixed;inset:0;z-index:3000;display:flex;align-items:flex-end;pointer-events:none;opacity:0;transition:opacity .2s;}
+#em.open{opacity:1;pointer-events:all;}
+.ms{background:var(--sf);border-radius:20px 20px 0 0;width:100%;max-height:88dvh;overflow:hidden;transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:0 -12px 40px rgba(0,0,0,.7);}
+#em.open .ms{transform:translateY(0);}
+.msh{padding:14px 16px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;display:flex;align-items:center;gap:10px;}
+.msh-drag{width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 10px;}
+.mt{font-size:15px;font-weight:800;color:var(--ac);flex:1;}
+.msc{overflow-y:auto;padding:14px 16px;flex:1;}
+.fg{margin-bottom:13px;}
+.fl{font-size:10px;color:var(--tx3);margin-bottom:5px;display:block;font-weight:700;letter-spacing:.4px;text-transform:uppercase;}
+.fi,.fs,.fta{width:100%;background:var(--sf2);border:1.5px solid var(--bd);border-radius:10px;padding:9px 12px;color:var(--tx);font-size:14px;outline:none;font-family:inherit;transition:border-color .12s;}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--ac);}
+.fs option{background:var(--sf2);}
+.fta{resize:vertical;min-height:68px;line-height:1.5;}
+.fg-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.mf{padding:12px 16px;border-top:1px solid var(--bd);flex-shrink:0;display:grid;grid-template-columns:1fr 2fr;gap:10px;}
+.bc{background:var(--sf2);border:1.5px solid var(--bd);border-radius:12px;padding:12px;color:var(--tx);font-size:14px;cursor:pointer;font-weight:600;}
+.bsv{background:var(--ac);border:none;border-radius:12px;padding:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;}
+
+/* Click popup */
+#clkp{position:fixed;inset:0;z-index:4000;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .2s;padding:20px;}
+#clkp.open{opacity:1;pointer-events:all;}
+.clk-box{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:20px;width:100%;max-width:320px;}
+.clk-title{font-size:14px;font-weight:700;color:var(--ac);margin-bottom:3px;}
+.clk-sub{font-size:11px;color:var(--tx2);margin-bottom:14px;}
+.clk-fi{width:100%;background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:9px 12px;color:var(--tx);font-size:16px;outline:none;margin-bottom:10px;font-family:inherit;}
+.clk-fi:focus{border-color:var(--ac);}
+.clk-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.clk-c{background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:9px;color:var(--tx);font-size:13px;cursor:pointer;}
+.clk-ok{background:var(--ac);border:none;border-radius:8px;padding:9px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;}
+
+/* Sheets setup modal */
+#sheetm{position:fixed;inset:0;z-index:5000;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;padding:20px;pointer-events:none;opacity:0;transition:opacity .2s;}
+#sheetm.open{opacity:1;pointer-events:all;}
+.shbox{background:var(--sf);border:1px solid var(--bd);border-radius:16px;padding:22px;width:100%;max-width:360px;}
+.sh-title{font-size:16px;font-weight:800;color:var(--ac);margin-bottom:6px;}
+.sh-sub{font-size:12px;color:var(--tx2);margin-bottom:16px;line-height:1.6;}
+.sh-fi{width:100%;background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:9px 12px;color:var(--tx);font-size:13px;outline:none;margin-bottom:12px;font-family:inherit;}
+.sh-fi:focus{border-color:var(--ac);}
+.sh-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.sh-c{background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:9px;color:var(--tx);font-size:13px;cursor:pointer;}
+.sh-ok{background:var(--ac);border:none;border-radius:8px;padding:9px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;}
+
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1500;opacity:0;pointer-events:none;transition:opacity .25s;}
+.ovl.show{opacity:1;pointer-events:all;}
+
+/* Leaflet */
+.leaflet-control-zoom a{background:var(--sf)!important;color:var(--tx)!important;border-color:var(--bd)!important;}
+.leaflet-popup-content-wrapper{background:var(--sf)!important;color:var(--tx)!important;border:1px solid var(--bd2);border-radius:12px!important;box-shadow:0 8px 32px rgba(0,0,0,.6)!important;}
+.leaflet-popup-tip{background:var(--sf)!important;}
+.leaflet-popup-content{font-size:13px;line-height:1.6;margin:12px 14px!important;}
+.pu-lot{font-size:16px;font-weight:800;color:var(--ac);}
+.pu-name{font-weight:600;margin:1px 0 5px;}
+.pu-info{font-size:11px;color:var(--tx2);}
+.pu-btn{background:var(--ac);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-top:7px;width:100%;}
+</style>
+</head>
+<body>
+
+<div class="hd">
+  <div class="hd-title">🗺 仁龍段商圈</div>
+  <div class="hd-sync">
+    <span class="sync-dot" id="sdot"></span>
+    <span id="stext">未連線</span>
+  </div>
+  <div class="hd-stats">
+    <div class="hs"><span class="dot" style="background:var(--V)"></span><span id="sv">0</span></div>
+    <div class="hs"><span class="dot" style="background:var(--C)"></span><span id="sc">0</span></div>
+    <div class="hs"><span class="dot" style="background:var(--R)"></span><span id="sr">0</span></div>
+    <div class="hs"><span class="dot" style="background:var(--B)"></span><span id="sb2">0</span></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="map">🗺 地圖</button>
+  <button class="tab" data-tab="grid">📋 列表</button>
+</div>
+
+<div class="fbar">
+  <input class="srch" type="search" id="search" placeholder="搜尋地號、業主、地址…" autocomplete="off">
+  <button class="fb active" data-filter="all">全部</button>
+  <button class="fb" data-filter="V">已訪</button>
+  <button class="fb" data-filter="U">未訪</button>
+  <button class="fb" data-filter="C">異動</button>
+  <button class="fb" data-filter="R">租賃</button>
+  <button class="fb" data-filter="B">自購</button>
+  <button class="fb" data-filter="S">委託</button>
+</div>
+
+<div id="mv" class="active">
+  <div id="map"></div>
+  <div class="mcp">
+    <div class="cg">
+      <div class="cr active" data-base="osm"><div class="cchk"></div>街道圖</div>
+      <div class="cr" data-base="sat"><div class="cchk"></div>衛星圖</div>
+    </div>
+    <div class="cg">
+      <div class="cr active" data-ovl="cad"><div class="cchk"></div>地籍圖</div>
+      <div class="cr active" data-ovl="mk"><div class="cchk"></div>標記</div>
+    </div>
+    <button class="mab" id="loc-btn">📍 定位</button>
+    <button class="mab" id="jump-btn">🔍 地號</button>
+    <button class="mab" id="sheet-btn">☁️ 同步</button>
+  </div>
+  <div id="ztip">🔍 放大可看地號界線</div>
+  <div class="lgd">
+    <div class="li"><span class="ld" style="background:var(--V)"></span>已訪</div>
+    <div class="li"><span class="ld" style="background:var(--C)"></span>異動</div>
+    <div class="li"><span class="ld" style="background:var(--R)"></span>租賃</div>
+    <div class="li"><span class="ld" style="background:var(--B)"></span>自購</div>
+    <div class="li"><span class="ld" style="background:var(--S)"></span>委託</div>
+    <div class="li"><span class="ld" style="background:var(--U)"></span>未訪</div>
+  </div>
+  <div class="map-bottom">
+    <span id="last-sync-txt">尚未從 Google Sheets 同步</span>
+    <button class="mb-btn sec" onclick="openEasymap()">地籍圖 ↗</button>
+    <button class="mb-btn pri" onclick="syncSheets()">🔄 同步</button>
+  </div>
+</div>
+
+<div id="gv">
+  <div class="gi" id="gi"></div>
+</div>
+
+<div class="ovl" id="ovl" onclick="closeAll()"></div>
+
+<!-- Detail Panel -->
+<div id="dp">
+  <div class="dh" onclick="closeDetail()"></div>
+  <div class="ds">
+    <div class="d-head">
+      <div>
+        <div class="d-lot-num" id="d-lot"></div>
+        <div class="d-owner" id="d-owner"></div>
+      </div>
+    </div>
+    <div class="d-srow" id="d-srow"></div>
+    <div class="ig">
+      <div class="ic"><div class="il">日期</div><div class="iv" id="d-date">—</div></div>
+      <div class="ic"><div class="il">委託日期</div><div class="iv" id="d-entrust">—</div></div>
+      <div class="ic"><div class="il">面積</div><div class="iv" id="d-area">—</div></div>
+      <div class="ic"><div class="il">地坪</div><div class="iv" id="d-tsubo">—</div></div>
+      <div class="ic"><div class="il">建坪</div><div class="iv" id="d-build">—</div></div>
+      <div class="ic"><div class="il">分區</div><div class="iv" id="d-zone">—</div></div>
+      <div class="ic full"><div class="il">開價 / 預算</div><div class="iv price" id="d-price">—</div></div>
+    </div>
+    <div class="prog-card">
+      <div class="prog-label">追蹤進度</div>
+      <div class="prog-text" id="d-prog">—</div>
+    </div>
+    <div class="prog-card" style="margin-bottom:12px">
+      <div class="prog-label">內容備注</div>
+      <div class="prog-text" id="d-note">—</div>
+    </div>
+    <div class="d-actions">
+      <button class="da sec" id="call-btn" onclick="callPhone()">📞 撥號</button>
+      <button class="da pri" onclick="openEdit(currentLot)">✏️ 編輯</button>
+    </div>
+    <button class="d-full-btn" onclick="openEasymapLot(currentLot)">🗺 在地籍圖查看此地號</button>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="em">
+  <div class="ms">
+    <div style="padding:0 16px"><div class="msh-drag" style="margin-top:10px"></div></div>
+    <div class="msh">
+      <div class="mt">編輯 ─ 地號 <span id="e-lot" style="color:var(--tx)"></span></div>
+    </div>
+    <div class="msc">
+      <div class="fg"><label class="fl">所有權人 / 客戶</label><input class="fi" id="f-owner" placeholder="姓名或店家"></div>
+      <div class="fg-row">
+        <div class="fg"><label class="fl">日期</label><input class="fi" id="f-date" type="date"></div>
+        <div class="fg"><label class="fl">委託日期</label><input class="fi" id="f-entrust" type="date"></div>
+      </div>
+      <div class="fg"><label class="fl">狀態</label>
+        <select class="fs" id="f-status">
+          <option value="U">未訪問</option>
+          <option value="V">已訪問</option>
+          <option value="C">有異動</option>
+          <option value="S">已委託</option>
+        </select>
+      </div>
+      <div class="fg"><label class="fl">類別（物件類型）</label>
+        <select class="fs" id="f-cat">
+          <option value="">未設定</option>
+          <option value="R">租賃</option>
+          <option value="B">自購</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label class="fl">面積(㎡)</label><input class="fi" id="f-area" placeholder="0" inputmode="decimal"></div>
+        <div class="fg"><label class="fl">地坪</label><input class="fi" id="f-tsubo" placeholder="0" inputmode="decimal"></div>
+      </div>
+      <div class="fg-row">
+        <div class="fg"><label class="fl">建坪</label><input class="fi" id="f-build" placeholder="0" inputmode="decimal"></div>
+        <div class="fg"><label class="fl">分區</label><input class="fi" id="f-zone" placeholder="例：住三"></div>
+      </div>
+      <div class="fg"><label class="fl">開價 / 預算</label><input class="fi" id="f-price" placeholder="例：500萬"></div>
+      <div class="fg"><label class="fl">聯絡電話</label><input class="fi" id="f-phone" inputmode="tel" placeholder="09xx-xxx-xxx"></div>
+      <div class="fg"><label class="fl">內容備注</label><textarea class="fta" id="f-note" placeholder="拜訪情況、屋況…"></textarea></div>
+      <div class="fg"><label class="fl">追蹤進度</label><textarea class="fta" id="f-prog" placeholder="洽談中、等待回覆…"></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="bc" onclick="closeEdit()">取消</button>
+      <button class="bsv" onclick="saveEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Click popup -->
+<div id="clkp">
+  <div class="clk-box">
+    <div class="clk-title">📌 記錄地號位置</div>
+    <div class="clk-sub" id="clk-coord"></div>
+    <input class="clk-fi" id="clk-input" placeholder="輸入地號，例：536" inputmode="numeric" autocomplete="off">
+    <div class="clk-btns">
+      <button class="clk-c" onclick="closeClkPopup()">取消</button>
+      <button class="clk-ok" onclick="confirmClk()">記錄</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sheets setup -->
+<div id="sheetm">
+  <div class="shbox">
+    <div class="sh-title">☁️ 連接 Google Sheets</div>
+    <div class="sh-sub">
+      請輸入你的 Google 試算表 ID：<br>
+      （網址中 <code style="color:var(--ac)">/d/</code> 和 <code style="color:var(--ac)">/edit</code> 之間的那段）<br><br>
+      試算表必須設為「知道連結者可檢視」
+    </div>
+    <input class="sh-fi" id="sh-input" placeholder="1JvSgG03phzO_5mdk6Zr1vBK7oTdY..." autocomplete="off">
+    <div class="sh-btns">
+      <button class="sh-c" onclick="closeSheetm()">取消</button>
+      <button class="sh-ok" onclick="saveSheetId()">連接</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// 常數 & 狀態
+// ═══════════════════════════════════════
+const ALL_LOTS = `14-1,170,183,184,185,185-1,185-2,188,189,190,190-1,190-2,202,203,202-1,203-1,204,205,205-1,208,207,206,209,210,211,212,213,214,215,216,217,218,219,220,221,222,223,224,225,267,268,269,270,271,272,273,274,276,275,278,277,279,289,292,293,297,296,298,300,301,299,302,303,306,305,304,307,308,309,310,311,313,314,315,317,316,317-1,318,319,321,322,322-1,322-2,322-3,324,323,325,327,326,329,328,331,330,332,333,334,334-1,335,336,337,338,339,340,341,342,343,344,345,346,347,348,350,349,351,352,353,354,355,356,357,358,359,360,361,362,363,364,365,366,367,368,369,370,371,372,373,374,375,376,377,378,379,380,381,382,383,384,388,387,386,385,389,391,390,392,394,393,395,396,397,399,398,400,402,401,403,404,405,406,407,408,409,410,411,412,413,414,415,416,417,418,419,420,420-1,421,422,423,424,424-1,425,426,427,427-1,428,429,431,430,431-1,432,432-1,433,434,434-1,434-10,434-12,434-13,434-19,434-20,434-21,434-22,434-23,434-24,434-25,434-26,434-27,434-28,434-29,434-30,434-31,434-32,434-33,434-34,434-35,434-37,434-38,434-40,434-41,434-42,434-43,434-44,434-45,436,437,438,439,440,441,442,443,444,446,445,448,447,450,449,452,451,454,453,456,455,457,458,459,460,461,462,463,464,465,466,467,468,469,470,471,472,473,474,475,476,477,478,479,480,481,482,483,484,485,486,487,488,489,490,490-1,493,494,495,496,497,498,499,502,501,500,503,504,505,506,509,508,507,510,511,512,513,514,515,517,516,518,519,520,521,522,523,524,525,526,527,527-1,529,533,534,535,535-1,536,536-1,537,538,538-1,538-2,538-3,538-4,538-5,538-6,538-7,538-8,539,539-1,539-2,539-3,539-4,540-1,540,541,541-1,542,546-1,547,547-1,548-3,548,548-4,548-5,548-6,548-7,548-8,548-9,548-12,550,549-1,551-1,552-1,553,554,556-1,557-1,558,558-1,559,561,563,564,566,565,567,568,568-1,569,569-1,569-2,569-3,569-4,569-5,569-6,569-7,569-8,569-9,569-10,569-11,569-12,569-13,569-14,569-15,570,572,571,573,574,575,575-1,575-2,576,577,577-1,577-2,577-3,577-4,577-5,580,580-1,580-2,580-3,581,582,583,587,587-1,587-2,588,588-1,589,590,591,592,593,594,595,597,596,599,598,600,601,602,603,603-1,604,604-1,605,605-2,605-3,605-4,605-5,605-6,606,607,608,608-1,609,610,611,612,613,614,615,616,617,618,619,620,621,622,623,624,626,625,627,628,629,630,631,632,633,634,635,636,638,639-3,640,640-1,641,641-1,642,642-1,643,643-1,643-2,643-3,643-4,644,645,645-1,645-2,645-3,645-4,645-6,645-11,645-7,645-13,645-14,645-15,645-16,645-18,645-19,645-20,645-21,645-22,645-26,645-27,645-28,645-29,645-30,645-31,645-33,645-32,645-34,645-35,645-36,645-37,645-38,647,648,648-2,648-1,648-3,648-4,648-5,648-6,648-7,648-8,648-9,648-10,648-11,648-12,648-13,648-14,648-15,648-16,650,653,654,656,655,657,658,659,660,661,662,663,664,665,666,667,668,669,670,671,672,673,674,675,676,677,678,679,680,681,682,683,684,685,685-1,685-2,687,688,689,690,691,692,693,694,695,696,697,698,699,700,701,702,702-1,704,705,706,707,708,709,710,711,712,713,714,715,716,717,718,719,720,721,722,723,724,725,726,727,728,729,730,731,732,733,734,735,736,737,738,739,740,741,742,743,744,746,745,747,747-1,747-2,750,751,752,753,754,755,756,757,758,759,760,761,762,763,764,765,766,767,770,769,768,771,772,773,774,775,776,777,777-1,777-2,777-3,777-4,778,778-1,779,784,785,788,787,786,789,789-1,790,791,791-1,791-2,791-3,791-4,791-5,792,793,794,795,796,797,798,798-1,802,801,803,804,805,806,807,808,809,810,811,812,812-1,813-1,814,814-1,815,816,817,818,819,820,821,822,823,824,825,826,827,828,829,830,830-1,830-2,830-3,830-4,831,832,833,834,835,836,843,845,844,846,847,848,849,850,851,852,853,854,855,856,857,858,859,860,861,862,863,864,865,866,867,868,869,870,871,872,873,874,875,876,877,878,879,880,881,882,883,884,885,886,887,888,889,890,891,892,893,894,895,896,897,898,899,900,901,902,903,904,905,906,907,908,909,910,912,911,913,914,915,916,917,918,919,920,921,922,923,924,925,926,927,928,929,930,931,932,933,934,935,936,937,938,939,940,941,942,943,944,945,945-1,946,948,947,949,950,951,952,953,953-1,953-2,953-3,953-4,953-5,953-6,954,955,956,957,958,959,960,961,962,963,964,965,965-1,965-2,965-3,965-4,965-5,965-6,965-7,966,968,967,969,969-1,970,970-1,970-2,970-3,970-4,970-5,971,972,972-1,973,974,975,976,977,978,979,980,981,982,983,984,985,986,986-1,986-2,986-3,986-4,986-5,988,988-1,990,991,992,993,994-1,994-2,994-3,994-5,994-4,994-6,995,996,997,998,999,1001,1002,1003,1004,1004-1,1004-2,1004-3,1006,1005,1007,1008,1009,1010,1011,1012,1013,1014,1015,1015-1,1015-2,1015-4,1015-3,1016,1017,1018,1019,1020,1021,1023,1024,1026,1029,1027,1028,1030,1031,1032,1033,1034,1034-1,1034-2,1034-3,1035,1035-1,1035-2,1035-3,1035-4,1035-5,1036,1037,1037-1,1038,1038-1,1038-2,1039,1040,1042,1041,1043,1044,1045,1046,1047,1048,1049,1050,1051,1053,1052,1054-1,1054,1055,1056,1057,1058,1059,1060,1061,1062,1063,1064,1065,1066,1067,1068,1071,1070,1069,1072,1073,1074,1075,1076,1077,1078,1079,1080,1081,1082,1083,1084,1085,1086,1087,1088,1089,1091,1090,1091-1,1094,1093,1092,1095,1096,1097,1098,1099,1100,1101,1102,1103,1104,1105,1106,1107,1108,1109,1110,1110-2,1111,1114,1111-1,1115,1116,1117,1118,1119,1120,1120-1,1120-2,1120-3,1121,1122,1123,1124,1125,1126,1127,1128,1129,1130,1131,1132,1133,1134,1135,1136,1137,1138,1139,1140,1141,1142,1143,1144,1145,1146,1146-1,1147,1148,1149,1150,1151,1152,1153,1154,1154-1,1154-2,1155,1156,1157,1158,1159,1159-1,1160,1160-1,1161,1162,1161-1,1163,1164,1165,1166,1167,1168,1169-1,1169,1170,1171,1171-1,1172,1173,1174,1174-1,1174-2,1174-3,1175,1175-2,1176,1177,1178,1179,1180,1181,1182,1183,1184,1185,1186,1187,1188,1189,1190,1191,1191-1,1192,1193,1194,1195,1196,1197,1199,1200,1201,1201-1,1202,1202-1,1203,1204,1204-1,1205,1205-1,1206,1206-1,1207,1207-1,1208,1210,1211,1212,1212-1,1213,1214,1215,1215-1,1216,1217,1218,1219,1220,1220-1,1221,1222,1223,1224,1225,1226,1227,1228,1229,1230,1231,1231-1,1232-1,1232`.split(',');
+
+const KEY = 'renlong_v4';
+const SHKEY = 'renlong_sheetid';
+const CENTER = [22.7115, 120.3358];
+const CLR = {V:'#2ecc8f',U:'#4a5578',C:'#f0a500',R:'#9b72f5',B:'#e85d5d',S:'#38bdf8'};
+const STAT_TW = {V:'已訪問',U:'未訪問',C:'有異動',S:'已委託'};
+const CAT_TW = {R:'租賃',B:'自購',other:'其他','':'未設定'};
+const TAG_TW = {V:'已訪',U:'未訪',C:'異動',R:'租賃',B:'自購',S:'委託'};
+
+// 試算表欄位對應（你的 Google Sheets 欄位順序）
+// 日期,類別,內容,位置(地址or地號),緯經度,所有權人/客戶,面積,地坪,建坪,分區,開價/預算,狀態,委託日期,追蹤進度
+const COL = {日期:0,類別:1,內容:2,位置:3,緯經度:4,所有權人:5,面積:6,地坪:7,建坪:8,分區:9,開價:10,狀態:11,委託日期:12,追蹤進度:13};
+
+let data={}, currentLot=null, curFilter='all', searchQ='';
+let map, osmL, satL, cadL, mkL;
+let showMk=true, pendingCoord=null;
+let sheetId = localStorage.getItem(SHKEY) || '1JvSgG03phzO_5mdk6Zr1vBK7oTdYDownM0hOgFkvhIc';
+
+// ── 欄位工具 ──
+function parseCls(row) {
+  const st = (row.狀態||'').trim();
+  const cat = (row.類別||'').trim();
+  if (/委託/i.test(st)) return 'S';
+  if (/租/i.test(cat)||/租/i.test(st)) return 'R';
+  if (/購|買/i.test(cat)||/購|買/i.test(st)) return 'B';
+  if (/異動|更新/i.test(st)) return 'C';
+  if (/已訪|拜訪/i.test(st)) return 'V';
+  return 'U';
+}
+
+function parseLatLng(str) {
+  if (!str) return null;
+  const m = str.match(/([\d.]+)[,，\s]+([\d.]+)/);
+  if (!m) return null;
+  const a = parseFloat(m[1]), b = parseFloat(m[2]);
+  // 台灣緯度約 21-26，判斷哪個是緯度
+  if (a > 20 && a < 30) return {lat:a, lng:b};
+  if (b > 20 && b < 30) return {lat:b, lng:a};
+  return null;
+}
+
+function extractLot(pos) {
+  if (!pos) return null;
+  // 找出純地號格式（數字或 數字-數字）
+  const m = pos.match(/\b(\d{1,4}(?:-\d{1,2})?)\b/);
+  return m ? m[1] : null;
+}
+
+// ═══════════════════════════════════════
+// 資料 load/save
+// ═══════════════════════════════════════
+function load() {
+  try { const s=localStorage.getItem(KEY); if(s) data=JSON.parse(s); } catch(e) {}
+  ALL_LOTS.forEach(l=>{ if(!data[l]) data[l]={owner:'',date:'',entrust:'',status:'U',cat:'',area:'',tsubo:'',build:'',zone:'',price:'',phone:'',note:'',prog:'',lat:null,lng:null}; });
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(data)); }
+
+function getCls(lot) {
+  const d=data[lot];
+  if(d.cat==='R') return 'R';
+  if(d.cat==='B') return 'B';
+  return d.status||'U';
+}
+
+// ═══════════════════════════════════════
+// Google Sheets 同步
+// ═══════════════════════════════════════
+function setSyncStatus(state, text) {
+  const dot=document.getElementById('sdot');
+  const tx=document.getElementById('stext');
+  dot.className='sync-dot'+(state==='ok'?' ok':state==='loading'?' loading':'');
+  tx.textContent=text;
+}
+
+async function syncSheets() {
+  if (!sheetId) { openSheetm(); return; }
+  setSyncStatus('loading','同步中…');
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&range=A:N`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('無法存取試算表');
+    const text = await res.text();
+    const rows = parseCSV(text);
+    if (!rows.length) throw new Error('試算表無資料');
+
+    // 跳過標題列
+    const headers = rows[0].map(h=>h.trim());
+    let imported=0;
+    for (let i=1; i<rows.length; i++) {
+      const r=rows[i];
+      if (!r.length || r.every(c=>!c)) continue;
+      const row={};
+      headers.forEach((h,j)=>row[h]=r[j]||'');
+
+      // 取得地號
+      const pos = row['位置(地址or地號)']||row['位置']||'';
+      const lot = extractLot(pos);
+      if (!lot || !ALL_LOTS.includes(lot)) continue;
+
+      // 解析緯經度
+      const ll = parseLatLng(row['緯經度']||'');
+      const c = parseCls(row);
+
+      data[lot] = {
+        ...data[lot],
+        owner: row['所有權人/客戶']||row['所有權人']||data[lot].owner||'',
+        date:  row['日期']||data[lot].date||'',
+        entrust: row['委託日期']||data[lot].entrust||'',
+        status: c,
+        cat: /租/i.test(row['類別'])?'R':/購|買/i.test(row['類別'])?'B':(data[lot].cat||''),
+        area:  row['面積']||data[lot].area||'',
+        tsubo: row['地坪']||data[lot].tsubo||'',
+        build: row['建坪']||data[lot].build||'',
+        zone:  row['分區']||data[lot].zone||'',
+        price: row['開價/預算']||row['開價']||data[lot].price||'',
+        note:  row['內容']||data[lot].note||'',
+        prog:  row['追蹤進度']||data[lot].prog||'',
+        lat: ll?ll.lat:data[lot].lat,
+        lng: ll?ll.lng:data[lot].lng,
+      };
+      imported++;
+    }
+    save(); renderMarkers(); renderGrid(); updateStats();
+    const now=new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+    setSyncStatus('ok',`已同步 ${now}`);
+    document.getElementById('last-sync-txt').textContent=`最後同步：${now}，共 ${imported} 筆`;
+  } catch(err) {
+    setSyncStatus('','同步失敗');
+    alert('❌ 同步失敗：'+err.message+'\n\n請確認：\n1. 試算表已設為「知道連結者可檢視」\n2. 試算表 ID 正確');
+  }
+}
+
+function parseCSV(text) {
+  const rows=[];
+  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols=[];
+    let cur='', inQ=false;
+    for (let i=0;i<line.length;i++) {
+      const ch=line[i];
+      if (ch==='"'&&inQ&&line[i+1]==='"'){cur+='"';i++;}
+      else if (ch==='"'){inQ=!inQ;}
+      else if (ch===','&&!inQ){cols.push(cur);cur='';}
+      else cur+=ch;
+    }
+    cols.push(cur);
+    rows.push(cols.map(c=>c.trim()));
+  }
+  return rows;
+}
+
+// Sheet ID modal
+function openSheetm(){document.getElementById('sheetm').classList.add('open');document.getElementById('sh-input').value=sheetId||'';}
+function closeSheetm(){document.getElementById('sheetm').classList.remove('open');}
+function saveSheetId(){
+  const v=document.getElementById('sh-input').value.trim();
+  if(!v){alert('請輸入試算表 ID');return;}
+  sheetId=v;localStorage.setItem(SHKEY,v);
+  closeSheetm();syncSheets();
+}
+
+// ═══════════════════════════════════════
+// 地圖
+// ═══════════════════════════════════════
+function initMap(){
+  map=L.map('map',{center:CENTER,zoom:16});
+  osmL=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:20});
+  satL=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:20});
+  cadL=L.tileLayer.wms('https://wms.nlsc.gov.tw/wms',{layers:'CADASTRAL',format:'image/png',transparent:true,version:'1.1.1',attribution:'© NLSC',opacity:0.85,maxZoom:20});
+  osmL.addTo(map); cadL.addTo(map);
+  mkL=L.layerGroup().addTo(map);
+
+  map.on('zoomend',()=>{
+    const zt=document.getElementById('ztip');
+    zt.style.opacity=map.getZoom()<17?'1':'0';
+  });
+  map.on('click',e=>{
+    pendingCoord={lat:e.latlng.lat,lng:e.latlng.lng};
+    document.getElementById('clk-coord').textContent=`${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+    document.getElementById('clk-input').value='';
+    document.getElementById('clkp').classList.add('open');
+    setTimeout(()=>document.getElementById('clk-input').focus(),150);
+  });
+  renderMarkers();
+}
+
+function mkIcon(c){
+  const col=CLR[c]||CLR.U;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
+    <ellipse cx="14" cy="34" rx="5" ry="2" fill="rgba(0,0,0,.22)"/>
+    <path d="M14 2C8.48 2 4 6.48 4 12c0 8 10 20 10 20S24 20 24 12C24 6.48 19.52 2 14 2z" fill="${col}" stroke="#fff" stroke-width="1.8"/>
+    <circle cx="14" cy="12" r="4" fill="#fff" opacity=".9"/>
+  </svg>`;
+  return L.divIcon({html:svg,className:'',iconSize:[28,36],iconAnchor:[14,36],popupAnchor:[0,-36]});
+}
+
+function renderMarkers(){
+  mkL.clearLayers();
+  if(!showMk) return;
+  const q=searchQ.toLowerCase();
+  ALL_LOTS.forEach(lot=>{
+    const d=data[lot];
+    if(!d.lat||!d.lng) return;
+    const c=getCls(lot);
+    if(curFilter!=='all'&&c!==curFilter) return;
+    if(q&&!lot.toLowerCase().includes(q)&&!(d.owner||'').toLowerCase().includes(q)&&!(d.note||'').toLowerCase().includes(q)) return;
+    const m=L.marker([d.lat,d.lng],{icon:mkIcon(c)});
+    m.bindPopup(`
+      <div class="pu-lot">地號 ${lot}</div>
+      <div class="pu-name">${d.owner||'（未填業主）'}</div>
+      <div class="pu-info">${STAT_TW[d.status]||''}${d.cat?' · '+CAT_TW[d.cat]:''}${d.price?' · '+d.price:''}</div>
+      ${d.prog?`<div style="font-size:11px;color:#9ba4be;margin-top:3px">📋 ${d.prog}</div>`:''}
+      <button class="pu-btn" onclick="popEdit('${lot}')">✏️ 查看 / 編輯</button>
+    `,{maxWidth:240});
+    mkL.addLayer(m);
+  });
+}
+window.popEdit=function(lot){map.closePopup();currentLot=lot;showDetail(lot);};
+
+// 點地圖記錄位置
+function closeClkPopup(){document.getElementById('clkp').classList.remove('open');pendingCoord=null;}
+function confirmClk(){
+  const lot=document.getElementById('clk-input').value.trim();
+  if(!lot){alert('請輸入地號');return;}
+  if(!ALL_LOTS.includes(lot)){alert(`地號 ${lot} 不在仁龍段清單`);return;}
+  data[lot].lat=pendingCoord.lat; data[lot].lng=pendingCoord.lng;
+  save(); closeClkPopup(); renderMarkers(); currentLot=lot; showDetail(lot);
+}
+
+// 圖層切換
+document.querySelectorAll('[data-base]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('[data-base]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    if(btn.dataset.base==='osm'){if(map.hasLayer(satL))map.removeLayer(satL);if(!map.hasLayer(osmL))osmL.addTo(map);}
+    else{if(map.hasLayer(osmL))map.removeLayer(osmL);if(!map.hasLayer(satL))satL.addTo(map);}
+    if(map.hasLayer(cadL))cadL.setOpacity(btn.dataset.base==='sat'?0.6:0.85);
+  });
+});
+document.querySelectorAll('[data-ovl]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    btn.classList.toggle('active');
+    if(btn.dataset.ovl==='cad'){if(btn.classList.contains('active')){if(!map.hasLayer(cadL))cadL.addTo(map);}else{if(map.hasLayer(cadL))map.removeLayer(cadL);}}
+    else{showMk=btn.classList.contains('active');renderMarkers();}
+  });
+});
+
+// GPS
+document.getElementById('loc-btn').addEventListener('click',()=>map.locate({setView:true,maxZoom:19}));
+map&&map.on('locationfound',e=>{L.circleMarker(e.latlng,{radius:9,color:CLR.V,fillColor:CLR.V,fillOpacity:.3,weight:2}).addTo(map);});
+
+// 跳地號
+document.getElementById('jump-btn').addEventListener('click',()=>{
+  const lot=prompt('輸入地號直接跳到位置：');
+  if(!lot)return;
+  const d=data[lot.trim()];
+  if(!d){alert('找不到此地號');return;}
+  if(d.lat&&d.lng){map.setView([d.lat,d.lng],19);currentLot=lot.trim();showDetail(lot.trim());}
+  else{alert(`地號 ${lot} 尚未記錄位置`);map.setView(CENTER,18);}
+});
+
+document.getElementById('sheet-btn').addEventListener('click',()=>{
+  if(sheetId) syncSheets(); else openSheetm();
+});
+
+function openEasymap(){window.open('https://easymap.land.moi.gov.tw/R02/Index','_blank');}
+window.openEasymapLot=function(lot){
+  window.open(`https://easymap.land.moi.gov.tw/R02/Index?citycode=10&towncode=04&seccode=仁龍&landno=${lot}`,'_blank');
+};
+
+// ═══════════════════════════════════════
+// Detail
+// ═══════════════════════════════════════
+function showDetail(lot){
+  currentLot=lot;
+  const d=data[lot]; const c=getCls(lot); const col=CLR[c]||CLR.U;
+  document.getElementById('d-lot').textContent=`地號 ${lot}`;
+  document.getElementById('d-owner').textContent=d.owner||'（未填業主）';
+
+  const sr=document.getElementById('d-srow');
+  sr.innerHTML=`<span class="dbadge" style="background:${col}22;color:${col}">${STAT_TW[d.status]||'未訪'}</span>
+    ${d.cat?`<span class="dbadge" style="background:${CLR[d.cat]||col}22;color:${CLR[d.cat]||col}">${CAT_TW[d.cat]}</span>`:''}`;
+
+  document.getElementById('d-date').textContent=d.date||'—';
+  document.getElementById('d-entrust').textContent=d.entrust||'—';
+  document.getElementById('d-area').textContent=d.area?d.area+'㎡':'—';
+  document.getElementById('d-tsubo').textContent=d.tsubo?d.tsubo+'坪':'—';
+  document.getElementById('d-build').textContent=d.build?d.build+'坪':'—';
+  document.getElementById('d-zone').textContent=d.zone||'—';
+  document.getElementById('d-price').textContent=d.price||'—';
+  document.getElementById('d-prog').textContent=d.prog||'—';
+  document.getElementById('d-note').textContent=d.note||'—';
+
+  const cb=document.getElementById('call-btn');
+  cb.style.opacity=d.phone?'1':'0.4';cb.style.pointerEvents=d.phone?'all':'none';
+
+  document.getElementById('dp').classList.add('open');
+  document.getElementById('ovl').classList.add('show');
+}
+function closeDetail(){document.getElementById('dp').classList.remove('open');document.getElementById('ovl').classList.remove('show');}
+function callPhone(){const p=data[currentLot]?.phone;if(p)window.location.href=`tel:${p.replace(/[^0-9+]/g,'')}`;}
+
+// ═══════════════════════════════════════
+// Edit
+// ═══════════════════════════════════════
+function openEdit(lot){
+  const d=data[lot];
+  document.getElementById('e-lot').textContent=lot;
+  document.getElementById('f-owner').value=d.owner||'';
+  document.getElementById('f-date').value=d.date||'';
+  document.getElementById('f-entrust').value=d.entrust||'';
+  document.getElementById('f-status').value=d.status||'U';
+  document.getElementById('f-cat').value=d.cat||'';
+  document.getElementById('f-area').value=d.area||'';
+  document.getElementById('f-tsubo').value=d.tsubo||'';
+  document.getElementById('f-build').value=d.build||'';
+  document.getElementById('f-zone').value=d.zone||'';
+  document.getElementById('f-price').value=d.price||'';
+  document.getElementById('f-phone').value=d.phone||'';
+  document.getElementById('f-note').value=d.note||'';
+  document.getElementById('f-prog').value=d.prog||'';
+  document.getElementById('em').classList.add('open');
+}
+function closeEdit(){document.getElementById('em').classList.remove('open');}
+function saveEdit(){
+  data[currentLot]={...data[currentLot],
+    owner:document.getElementById('f-owner').value.trim(),
+    date:document.getElementById('f-date').value,
+    entrust:document.getElementById('f-entrust').value,
+    status:document.getElementById('f-status').value,
+    cat:document.getElementById('f-cat').value,
+    area:document.getElementById('f-area').value.trim(),
+    tsubo:document.getElementById('f-tsubo').value.trim(),
+    build:document.getElementById('f-build').value.trim(),
+    zone:document.getElementById('f-zone').value.trim(),
+    price:document.getElementById('f-price').value.trim(),
+    phone:document.getElementById('f-phone').value.trim(),
+    note:document.getElementById('f-note').value.trim(),
+    prog:document.getElementById('f-prog').value.trim(),
+  };
+  save();closeEdit();showDetail(currentLot);renderMarkers();renderGrid();updateStats();
+}
+function closeAll(){closeDetail();closeEdit();}
+
+// ═══════════════════════════════════════
+// Grid
+// ═══════════════════════════════════════
+function renderGrid(){
+  const q=searchQ.toLowerCase();
+  const vis=ALL_LOTS.filter(lot=>{
+    const c=getCls(lot);
+    if(curFilter!=='all'&&c!==curFilter)return false;
+    const d=data[lot];
+    if(q&&!lot.toLowerCase().includes(q)&&!(d.owner||'').toLowerCase().includes(q)&&!(d.note||'').toLowerCase().includes(q))return false;
+    return true;
+  });
+  const gi=document.getElementById('gi');
+  gi.innerHTML=!vis.length?'<div class="empty">沒有符合條件的地號</div>':
+    vis.map(lot=>{const d=data[lot];const c=getCls(lot);
+      return `<div class="lc ${c}" onclick="showDetail('${lot}')">
+        <div class="ln">${lot}</div>
+        ${d.owner?`<div class="lname">${d.owner}</div>`:''}
+        ${d.price?`<div class="lname" style="color:var(--C)">${d.price}</div>`:''}
+        <span class="ltag t${c}">${TAG_TW[c]||''}</span>
+      </div>`;}).join('');
+}
+
+function updateStats(){
+  let v=0,c=0,r=0,b=0;
+  ALL_LOTS.forEach(l=>{const x=getCls(l);if(x==='V')v++;if(x==='C'||x==='S')c++;if(x==='R')r++;if(x==='B')b++;});
+  document.getElementById('sv').textContent=v;document.getElementById('sc').textContent=c;
+  document.getElementById('sr').textContent=r;document.getElementById('sb2').textContent=b;
+}
+
+// ═══════════════════════════════════════
+// Events
+// ═══════════════════════════════════════
+document.querySelectorAll('.tab').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  const t=btn.dataset.tab;
+  document.getElementById('mv').classList.toggle('active',t==='map');
+  document.getElementById('gv').classList.toggle('active',t==='grid');
+  if(t==='map')setTimeout(()=>map.invalidateSize(),120);
+  if(t==='grid')renderGrid();
+}));
+
+document.querySelectorAll('.fb').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  curFilter=btn.dataset.filter;renderMarkers();renderGrid();
+}));
+
+document.getElementById('search').addEventListener('input',e=>{searchQ=e.target.value;renderMarkers();renderGrid();});
+document.getElementById('clk-input').addEventListener('keydown',e=>{if(e.key==='Enter')confirmClk();});
+document.getElementById('sh-input').addEventListener('keydown',e=>{if(e.key==='Enter')saveSheetId();});
+
+// ═══════════════════════════════════════
+// Init
+// ═══════════════════════════════════════
+load(); initMap(); renderGrid(); updateStats();
+// 自動同步
+if(sheetId) setTimeout(syncSheets, 800);
+</script>
+</body>
+</html>
