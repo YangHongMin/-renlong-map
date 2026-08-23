@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>仁龍段商圈報表</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f1117;--sf:#181c27;--sf2:#1e2333;--bd:#2d3348;--bd2:#3a4260;
+  --ac:#4f8ef7;--tx:#dde2f0;--tx2:#9ba4be;--tx3:#5d6785;
+  --V:#1a6644;--U:#1e2535;--C:#7a5200;--R:#5b1a6e;--B:#7a1a1a;--S:#0d3d6b;--O:#7a3a00;
+  --V-lt:#2ecc8f;--U-lt:#4a5578;--C-lt:#f0a500;--R-lt:#9b72f5;--B-lt:#e85d5d;--S-lt:#38bdf8;--O-lt:#fb923c;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:-apple-system,"Noto Sans TC",sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;}
+
+/* Nav */
+.nav{background:var(--sf);border-bottom:1px solid var(--bd);height:46px;display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;}
+.nav-title{font-size:14px;font-weight:700;color:var(--ac);flex:1;}
+.nav-link{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-decoration:none;white-space:nowrap;}
+.nav-link.active,.nav-link:hover{background:var(--ac);border-color:var(--ac);color:#fff;}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--U-lt);cursor:pointer;flex-shrink:0;}
+.sdot.ok{background:var(--V-lt);} .sdot.loading{background:var(--C-lt);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* 主體左右分割 */
+.main{flex:1;display:flex;overflow:hidden;}
+
+/* 左側控制面板 */
+.sidebar{width:280px;flex-shrink:0;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-section{padding:10px 12px;border-bottom:1px solid var(--bd);flex-shrink:0;}
+.sidebar-section h3{font-size:11px;font-weight:700;color:var(--ac);margin-bottom:8px;letter-spacing:.3px;text-transform:uppercase;}
+.sidebar-scroll{flex:1;overflow-y:auto;}
+.sidebar-scroll::-webkit-scrollbar{width:4px;}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px;}
+
+/* 選擇方式 Tab */
+.sel-tabs{display:flex;gap:4px;margin-bottom:8px;}
+.sel-tab{flex:1;padding:5px 4px;font-size:10px;font-weight:600;background:var(--sf2);border:1.5px solid var(--bd);border-radius:6px;color:var(--tx2);cursor:pointer;text-align:center;}
+.sel-tab.active{background:var(--ac);border-color:var(--ac);color:#fff;}
+
+/* 輸入地號 */
+.lot-input{width:100%;background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--tx);font-size:12px;outline:none;resize:vertical;min-height:60px;font-family:inherit;line-height:1.5;}
+.lot-input:focus{border-color:var(--ac);}
+.input-hint{font-size:10px;color:var(--tx3);margin-top:4px;}
+
+/* 快選按鈕 */
+.quick-btns{display:flex;flex-wrap:wrap;gap:5px;}
+.qbtn{background:var(--sf2);border:1.5px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.qbtn:hover{border-color:var(--ac);color:var(--ac);}
+.qbtn.danger{border-color:var(--B-lt);color:var(--B-lt);}
+
+/* 地號列表 */
+.lot-list-item{display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;transition:background .1s;-webkit-tap-highlight-color:transparent;}
+.lot-list-item:hover{background:var(--sf2);}
+.lot-list-item.checked{background:rgba(79,142,247,.08);}
+.lot-chk{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--bd2);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.lot-list-item.checked .lot-chk{background:var(--ac);border-color:var(--ac);}
+.lot-chk::after{content:'✓';font-size:9px;color:#fff;display:none;}
+.lot-list-item.checked .lot-chk::after{display:block;}
+.lot-num{font-size:12px;font-weight:600;color:var(--tx);flex:1;}
+.lot-owner{font-size:10px;color:var(--tx2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lot-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+
+/* 搜尋 */
+.lot-search{width:100%;background:var(--sf2);border:1.5px solid var(--bd);border-radius:7px;padding:5px 9px;color:var(--tx);font-size:12px;outline:none;}
+.lot-search:focus{border-color:var(--ac);}
+
+/* 框選提示 */
+.box-hint{background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.3);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--ac);line-height:1.5;}
+
+/* 道路標記 */
+.road-section{display:flex;flex-direction:column;gap:6px;}
+.road-item{display:flex;align-items:center;gap:8px;padding:5px 0;}
+.road-num{font-size:11px;color:var(--tx);flex:1;font-weight:600;}
+.road-remove{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:14px;padding:0 4px;}
+.road-input-row{display:flex;gap:6px;}
+.road-fi{flex:1;background:var(--sf2);border:1.5px solid var(--bd);border-radius:7px;padding:5px 9px;color:var(--tx);font-size:12px;outline:none;}
+.road-add{background:var(--ac);border:none;border-radius:7px;padding:5px 10px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;}
+
+/* 選取統計 */
+.sel-stats{display:flex;flex-wrap:wrap;gap:5px;}
+.sel-stat{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:3px 8px;font-size:10px;color:var(--tx2);display:flex;align-items:center;gap:4px;}
+.sel-stat .dot{width:7px;height:7px;border-radius:50%;}
+
+/* 生成按鈕 */
+.gen-btn{width:100%;padding:11px;background:var(--ac);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:.3px;}
+.gen-btn:disabled{background:var(--bd);color:var(--tx3);cursor:not-allowed;}
+.print-btn{width:100%;padding:9px;background:var(--sf2);border:1.5px solid var(--bd);border-radius:10px;color:var(--tx2);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;}
+.print-btn:hover{border-color:var(--ac);color:var(--ac);}
+
+/* 右側預覽 */
+.preview-area{flex:1;position:relative;overflow:hidden;background:#0a0d14;}
+#preview-canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+
+/* 預覽空白狀態 */
+.preview-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--tx3);gap:12px;}
+.preview-empty .icon{font-size:48px;opacity:.4;}
+.preview-empty p{font-size:13px;}
+
+/* 地圖容器（框選用）*/
+#sel-map{width:100%;height:100%;display:none;}
+#sel-map.active{display:block;}
+
+/* Print 樣式 */
+@media print {
+  .nav,.sidebar{display:none!important;}
+  .preview-area{position:fixed;inset:0;}
+  .preview-empty{display:none!important;}
+  #preview-canvas{position:fixed!important;top:0;left:0;width:100%!important;height:100%!important;}
+}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-title">📋 仁龍段商圈報表</div>
+  <a class="nav-link" href="index.html">地圖</a>
+  <a class="nav-link" href="cadastral.html">地籍圖</a>
+  <a class="nav-link active" href="report.html">報表</a>
+  <span class="sdot" id="sdot" onclick="syncSheets()"></span>
+  <span style="font-size:10px;color:var(--tx3);cursor:pointer" onclick="syncSheets()" id="stxt">同步</span>
+</div>
+
+<div class="main">
+  <!-- 左側控制 -->
+  <div class="sidebar">
+
+    <!-- 選擇方式 -->
+    <div class="sidebar-section">
+      <h3>選擇地號</h3>
+      <div class="sel-tabs">
+        <div class="sel-tab active" data-tab="list" onclick="switchTab('list')">列表勾選</div>
+        <div class="sel-tab" data-tab="input" onclick="switchTab('input')">輸入地號</div>
+        <div class="sel-tab" data-tab="box" onclick="switchTab('box')">框選地圖</div>
+      </div>
+
+      <!-- 列表勾選 -->
+      <div id="tab-list">
+        <input class="lot-search" id="lot-search" placeholder="搜尋地號或業主…" oninput="renderLotList()">
+        <div style="display:flex;gap:5px;margin-top:6px;">
+          <button class="qbtn" onclick="selectByType('R')">🟣 全選租賃</button>
+          <button class="qbtn" onclick="selectByType('B')">🔴 全選自購</button>
+          <button class="qbtn" onclick="selectByType('S')">🔵 全選委託</button>
+        </div>
+        <div style="display:flex;gap:5px;margin-top:4px;">
+          <button class="qbtn" onclick="selectByType('V')">🟢 全選已訪</button>
+          <button class="qbtn" onclick="selectAll()">全選</button>
+          <button class="qbtn danger" onclick="clearAll()">清除</button>
+        </div>
+      </div>
+
+      <!-- 輸入地號 -->
+      <div id="tab-input" style="display:none;">
+        <textarea class="lot-input" id="lot-input" placeholder="輸入地號，用逗號或換行分隔&#10;例：536, 537, 538-1&#10;645, 645-1, 645-2"></textarea>
+        <div class="input-hint">支援逗號、空格、換行分隔</div>
+        <button class="qbtn" style="margin-top:6px;width:100%;text-align:center;padding:6px" onclick="applyInput()">✅ 套用</button>
+      </div>
+
+      <!-- 框選地圖 -->
+      <div id="tab-box" style="display:none;">
+        <div class="box-hint">
+          📦 在右側地圖上拖曳框選範圍<br>
+          框內的地號會自動加入選取
+        </div>
+        <button class="qbtn" style="margin-top:6px;width:100%;text-align:center;padding:6px" id="box-toggle" onclick="toggleBoxMode()">🔲 開始框選</button>
+      </div>
+    </div>
+
+    <!-- 道路標記 -->
+    <div class="sidebar-section">
+      <h3>道路地號（白色顯示）</h3>
+      <div class="road-section">
+        <div id="road-list"></div>
+        <div class="road-input-row">
+          <input class="road-fi" id="road-input" placeholder="地號（例：536）" onkeydown="if(event.key==='Enter')addRoad()">
+          <button class="road-add" onclick="addRoad()">加入</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 選取統計 -->
+    <div class="sidebar-section">
+      <h3>目前選取</h3>
+      <div class="sel-stats" id="sel-stats">
+        <div style="font-size:11px;color:var(--tx3)">尚未選取地號</div>
+      </div>
+    </div>
+
+    <!-- 產生按鈕 -->
+    <div class="sidebar-section">
+      <button class="gen-btn" id="gen-btn" onclick="generateReport()" disabled>產生商圈圖</button>
+      <button class="print-btn" id="print-btn" onclick="printReport()" style="display:none">🖨️ 列印 / 匯出 PDF</button>
+    </div>
+
+    <!-- 列表 -->
+    <div class="sidebar-scroll">
+      <div id="lot-list"></div>
+    </div>
+  </div>
+
+  <!-- 右側預覽 -->
+  <div class="preview-area" id="preview-area">
+    <div class="preview-empty" id="preview-empty">
+      <div class="icon">📋</div>
+      <p>選擇地號後點「產生商圈圖」</p>
+      <p style="font-size:11px;opacity:.6">支援列表勾選、輸入地號、框選地圖</p>
+    </div>
+    <canvas id="preview-canvas" style="display:none;"></canvas>
+    <div id="sel-map"></div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// 資料
+// ══════════════════════════════════════════
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSoo54DLyQ_hkcfjC9vbB9zinOwhz1aaQfUIq-vuFjiKcJJiiIoiTBldICIihbThqm0JDC0ZXv5V6PE/pub?output=csv';
+
+// 顏色（深色系）
+const CLR_DARK  = {V:'#1a6644',U:'#1e2535',C:'#7a4d00',R:'#4b1a6e',B:'#7a1a1a',S:'#0d3d6b',O:'#7a3a00'};
+const CLR_LIGHT = {V:'#2ecc8f',U:'#4a5578',C:'#f0a500',R:'#9b72f5',B:'#e85d5d',S:'#38bdf8',O:'#fb923c'};
+const STAT_TW   = {V:'已訪問',U:'未訪問',C:'有異動',S:'已委託',R:'租賃',B:'自購',O:'其他'};
+const ROAD_CLR  = '#ffffff';
+
+let sheetsData = {};   // lot -> row data
+let selectedLots = new Set();
+let roadLots = new Set();
+let activeTab = 'list';
+let boxMode = false;
+let selMap = null, selRect = null, startLatLng = null;
+
+// DXF 資料（內嵌）
+// ══════════════════════════════════════════
+// 同步 Google Sheets
+// ══════════════════════════════════════════
+function getCls(s,c){
+  if(/委託/i.test(s)) return 'S';
+  if(/租/i.test(c)||/租|出租/i.test(s)) return 'R';
+  if(/購|買/i.test(c)||/購|買/i.test(s)) return 'B';
+  if(/異動|更新/i.test(s)) return 'C';
+  if(/已訪|拜訪/i.test(s)) return 'V';
+  if(/銷售|出售|自用/i.test(s)) return 'O';
+  return 'U';
+}
+function parseCSV(text){
+  const lines=text.replace(/^\uFEFF/,'').split(/\r?\n/);
+  const out=[];
+  for(const line of lines){
+    if(!line.trim()) continue;
+    const cols=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'&&inQ&&line[i+1]==='"'){cur+='"';i++;}
+      else if(ch==='"'){inQ=!inQ;}
+      else if(ch===','&&!inQ){cols.push(cur);cur='';}
+      else cur+=ch;
+    }
+    cols.push(cur);
+    out.push(cols.map(c=>c.trim()));
+  }
+  return out;
+}
+function setSyncUI(state,txt){
+  const d=document.getElementById('sdot');
+  d.className='sdot'+(state==='ok'?' ok':state==='loading'?' loading':'');
+  document.getElementById('stxt').textContent=txt;
+}
+function extractLot(pos){
+  if(!pos) return null;
+  const m=pos.match(/(\d{1,4}(?:-\d{1,2})?)\s*地號/)||pos.match(/\b(\d{1,4}(?:-\d{1,2})?)\b/);
+  return m?m[1]:null;
+}
+async function syncSheets(){
+  setSyncUI('loading','同步中…');
+  try{
+    const res=await fetch(SHEET_CSV);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const parsed=parseCSV(await res.text());
+    if(parsed.length<2) throw new Error('無資料');
+    const H=parsed[0];
+    const col=(r,k)=>{const i=H.findIndex(h=>h.includes(k));return i>=0?r[i]||'':''};
+    sheetsData={};
+    for(let i=1;i<parsed.length;i++){
+      const r=parsed[i];
+      if(r.every(c=>!c)) continue;
+      const pos=col(r,'位置');
+      const lot=extractLot(pos)||pos.trim();
+      if(!lot) continue;
+      sheetsData[lot]={
+        owner:col(r,'所有權人'),date:col(r,'日期'),entrust:col(r,'委託日期'),
+        area:col(r,'面積'),tsubo:col(r,'地坪'),build:col(r,'建坪'),
+        zone:col(r,'分區'),price:col(r,'開價'),note:col(r,'內容'),
+        prog:col(r,'追蹤進度'),pos:pos,
+        cls:getCls(col(r,'狀態'),col(r,'類別'))
+      };
+    }
+    setSyncUI('ok',new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}));
+    renderLotList();
+    updateStats();
+  }catch(err){
+    setSyncUI('','失敗');
+    console.error(err);
+  }
+}
+
+// ══════════════════════════════════════════
+// 取得地號的多邊形（從 DXF 文字位置找最近的多段線）
+// ══════════════════════════════════════════
+function getLotPolygon(lot){
+  // 找文字標籤
+  const textEntry = DXF_TEXTS.find(t => {
+    const lots = t.t.match(/\d+(?:-\d+)?/g)||[];
+    return lots.includes(lot);
+  });
+  if(!textEntry) return null;
+
+  // 找最近的多段線
+  let best=null, bestD=Infinity;
+  DXF_POLYS.forEach(poly=>{
+    const cx=poly.pts.reduce((s,p)=>s+p[0],0)/poly.pts.length;
+    const cy=poly.pts.reduce((s,p)=>s+p[1],0)/poly.pts.length;
+    const d=(cx-textEntry.lng)**2+(cy-textEntry.lat)**2;
+    if(d<bestD){bestD=d;best=poly;}
+  });
+  return best;
+}
+
+function getLotTextEntry(lot){
+  return DXF_TEXTS.find(t=>{
+    const lots=t.t.match(/\d+(?:-\d+)?/g)||[];
+    return lots.includes(lot);
+  });
+}
+
+// ══════════════════════════════════════════
+// UI：Tab 切換
+// ══════════════════════════════════════════
+function switchTab(tab){
+  activeTab=tab;
+  ['list','input','box'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=t===tab?'block':'none';
+    document.querySelector(`[data-tab="${t}"]`).classList.toggle('active',t===tab);
+  });
+  if(tab==='box') initSelMap();
+  else hideSelMap();
+}
+
+// ══════════════════════════════════════════
+// 列表勾選
+// ══════════════════════════════════════════
+function renderLotList(){
+  const q=(document.getElementById('lot-search').value||'').toLowerCase();
+  const allLots = getAllLots();
+  const filtered = allLots.filter(lot=>{
+    if(!q) return true;
+    const d=sheetsData[lot];
+    return lot.toLowerCase().includes(q)||(d&&d.owner.toLowerCase().includes(q));
+  });
+
+  const el=document.getElementById('lot-list');
+  el.innerHTML=filtered.map(lot=>{
+    const d=sheetsData[lot];
+    const cls=d?d.cls:'U';
+    const checked=selectedLots.has(lot);
+    return `<div class="lot-list-item${checked?' checked':''}" onclick="toggleLot('${lot}')">
+      <div class="lot-chk"></div>
+      <span class="lot-dot" style="background:${CLR_LIGHT[cls]}"></span>
+      <span class="lot-num">${lot}</span>
+      <span class="lot-owner">${d?d.owner:''}</span>
+    </div>`;
+  }).join('');
+}
+
+function getAllLots(){
+  // 從 DXF 文字取得所有地號
+  const lots=new Set();
+  DXF_TEXTS.forEach(t=>{
+    (t.t.match(/\d+(?:-\d+)?/g)||[]).forEach(l=>lots.add(l));
+  });
+  // 也加入 sheets 裡有的
+  Object.keys(sheetsData).forEach(l=>lots.add(l));
+  return [...lots].sort((a,b)=>{
+    const na=parseInt(a),nb=parseInt(b);
+    if(na!==nb) return na-nb;
+    return a.localeCompare(b);
+  });
+}
+
+function toggleLot(lot){
+  if(selectedLots.has(lot)) selectedLots.delete(lot);
+  else selectedLots.add(lot);
+  renderLotList();
+  updateStats();
+}
+
+function selectByType(cls){
+  getAllLots().forEach(lot=>{
+    const d=sheetsData[lot];
+    if(d&&d.cls===cls) selectedLots.add(lot);
+  });
+  renderLotList(); updateStats();
+}
+function selectAll(){ getAllLots().forEach(l=>selectedLots.add(l)); renderLotList(); updateStats(); }
+function clearAll(){ selectedLots.clear(); renderLotList(); updateStats(); }
+
+// ══════════════════════════════════════════
+// 輸入地號
+// ══════════════════════════════════════════
+function applyInput(){
+  const raw=document.getElementById('lot-input').value;
+  const lots=raw.match(/\d+(?:-\d+)?/g)||[];
+  lots.forEach(l=>selectedLots.add(l));
+  renderLotList(); updateStats();
+  switchTab('list');
+}
+
+// ══════════════════════════════════════════
+// 框選地圖
+// ══════════════════════════════════════════
+function initSelMap(){
+  const container=document.getElementById('sel-map');
+  container.style.display='block';
+  document.getElementById('preview-canvas').style.display='none';
+  document.getElementById('preview-empty').style.display='none';
+
+  if(!selMap){
+    selMap=L.map('sel-map',{center:[22.691,120.367],zoom:16});
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {attribution:'© Esri',maxZoom:20}).addTo(selMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {attribution:'© OSM',maxZoom:20,opacity:0.3}).addTo(selMap);
+
+    // 畫 DXF 線條
+    DXF_POLYS.forEach(poly=>{
+      const latlngs=poly.pts.map(p=>[p[1],p[0]]);
+      L.polyline(latlngs,{color:'#4a5578',weight:0.8,opacity:0.6}).addTo(selMap);
+    });
+
+    // 框選互動
+    selMap.on('mousedown',onBoxStart);
+    selMap.on('mousemove',onBoxMove);
+    selMap.on('mouseup',onBoxEnd);
+    selMap.on('touchstart',onTouchBoxStart,{passive:false});
+    selMap.on('touchmove',onTouchBoxMove,{passive:false});
+    selMap.on('touchend',onBoxEnd);
+  }
+  setTimeout(()=>selMap.invalidateSize(),100);
+}
+
+function hideSelMap(){
+  document.getElementById('sel-map').style.display='none';
+}
+
+let boxStart=null, boxLayer=null;
+function toggleBoxMode(){
+  boxMode=!boxMode;
+  const btn=document.getElementById('box-toggle');
+  btn.textContent=boxMode?'✅ 框選中（再點取消）':'🔲 開始框選';
+  btn.style.background=boxMode?'rgba(46,204,143,.15)':'';
+  btn.style.borderColor=boxMode?'var(--V-lt)':'';
+  btn.style.color=boxMode?'var(--V-lt)':'';
+  if(selMap) selMap.dragging[boxMode?'disable':'enable']();
+}
+
+function onBoxStart(e){
+  if(!boxMode) return;
+  boxStart=e.latlng;
+  if(boxLayer){selMap.removeLayer(boxLayer);boxLayer=null;}
+}
+function onBoxMove(e){
+  if(!boxMode||!boxStart) return;
+  if(boxLayer) selMap.removeLayer(boxLayer);
+  const bounds=L.latLngBounds(boxStart,e.latlng);
+  boxLayer=L.rectangle(bounds,{color:'#4f8ef7',weight:1.5,fillOpacity:0.1,fillColor:'#4f8ef7'}).addTo(selMap);
+}
+function onBoxEnd(e){
+  if(!boxMode||!boxStart) return;
+  const end=e.latlng||e.touches&&L.latLng(e.touches[0].latlng)||boxStart;
+  const bounds=L.latLngBounds(boxStart,end);
+  // 找框內的地號
+  DXF_TEXTS.forEach(t=>{
+    if(bounds.contains([t.lat,t.lng])){
+      (t.t.match(/\d+(?:-\d+)?/g)||[]).forEach(l=>selectedLots.add(l));
+    }
+  });
+  boxStart=null;
+  renderLotList(); updateStats();
+  toggleBoxMode();
+}
+function onTouchBoxStart(e){e.originalEvent.preventDefault();if(e.touches.length===1)onBoxStart({latlng:e.latlng});}
+function onTouchBoxMove(e){e.originalEvent.preventDefault();if(e.touches.length===1)onBoxMove({latlng:e.latlng});}
+
+// ══════════════════════════════════════════
+// 道路地號
+// ══════════════════════════════════════════
+function addRoad(){
+  const v=document.getElementById('road-input').value.trim();
+  if(!v) return;
+  (v.match(/\d+(?:-\d+)?/g)||[]).forEach(l=>roadLots.add(l));
+  document.getElementById('road-input').value='';
+  renderRoadList();
+}
+function removeRoad(lot){ roadLots.delete(lot); renderRoadList(); }
+function renderRoadList(){
+  const el=document.getElementById('road-list');
+  el.innerHTML=[...roadLots].map(lot=>`
+    <div class="road-item">
+      <span class="road-num">${lot}</span>
+      <button class="road-remove" onclick="removeRoad('${lot}')">✕</button>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════
+// 統計
+// ══════════════════════════════════════════
+function updateStats(){
+  const cnt={};
+  selectedLots.forEach(lot=>{
+    const d=sheetsData[lot];
+    const cls=d?d.cls:'U';
+    cnt[cls]=(cnt[cls]||0)+1;
+  });
+  const el=document.getElementById('sel-stats');
+  if(!selectedLots.size){
+    el.innerHTML='<div style="font-size:11px;color:var(--tx3)">尚未選取地號</div>';
+    document.getElementById('gen-btn').disabled=true;
+    return;
+  }
+  el.innerHTML=`<div class="sel-stat" style="border-color:var(--ac);color:var(--ac)">共 ${selectedLots.size} 筆</div>`+
+    Object.entries(cnt).map(([cls,n])=>
+      `<div class="sel-stat"><span class="dot" style="background:${CLR_LIGHT[cls]}"></span>${STAT_TW[cls]||cls} ${n}</div>`
+    ).join('');
+  document.getElementById('gen-btn').disabled=false;
+}
+
+// ══════════════════════════════════════════
+// 產生商圈圖（Canvas 繪製）
+// ══════════════════════════════════════════
+function generateReport(){
+  if(!selectedLots.size){ alert('請先選取地號'); return; }
+
+  // 隱藏地圖，顯示 Canvas
+  document.getElementById('sel-map').style.display='none';
+  document.getElementById('preview-empty').style.display='none';
+  const canvas=document.getElementById('preview-canvas');
+  canvas.style.display='block';
+
+  const area=document.getElementById('preview-area');
+  canvas.width=area.clientWidth;
+  canvas.height=area.clientHeight;
+  const ctx=canvas.getContext('2d');
+
+  // 收集所有選取地號的多邊形
+  const lotPolygons=[];
+  selectedLots.forEach(lot=>{
+    const poly=getLotPolygon(lot);
+    const txt=getLotTextEntry(lot);
+    const d=sheetsData[lot];
+    const isRoad=roadLots.has(lot);
+    if(poly||txt){
+      lotPolygons.push({lot,poly,txt,data:d,isRoad,cls:isRoad?'ROAD':(d?d.cls:'U')});
+    }
+  });
+
+  if(!lotPolygons.length){ alert('找不到所選地號的地籍資料'); return; }
+
+  // 計算範圍
+  let minLng=Infinity,maxLng=-Infinity,minLat=Infinity,maxLat=-Infinity;
+  lotPolygons.forEach(({poly,txt})=>{
+    if(poly) poly.pts.forEach(p=>{
+      if(p[0]<minLng)minLng=p[0]; if(p[0]>maxLng)maxLng=p[0];
+      if(p[1]<minLat)minLat=p[1]; if(p[1]>maxLat)maxLat=p[1];
+    });
+    if(txt){
+      if(txt.lng<minLng)minLng=txt.lng; if(txt.lng>maxLng)maxLng=txt.lng;
+      if(txt.lat<minLat)minLat=txt.lat; if(txt.lat>maxLat)maxLat=txt.lat;
+    }
+  });
+
+  const PAD=40;
+  const W=canvas.width-PAD*2, H=canvas.height-PAD*2;
+  const spanLng=maxLng-minLng||0.001;
+  const spanLat=maxLat-minLat||0.001;
+  const scaleX=W/spanLng, scaleY=H/spanLat;
+  const scale=Math.min(scaleX,scaleY)*0.9;
+  const offX=PAD+(W-spanLng*scale)/2;
+  const offY=PAD+(H-spanLat*scale)/2;
+
+  function geoToCanvas(lng,lat){
+    return [
+      offX+(lng-minLng)*scale,
+      offY+(maxLat-lat)*scale
+    ];
+  }
+
+  // 背景
+  ctx.fillStyle='#0a0d14';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // 標題
+  ctx.fillStyle='#dde2f0';
+  ctx.font='bold 14px -apple-system,sans-serif';
+  ctx.textAlign='left';
+  ctx.fillText(`仁龍段商圈圖　${new Date().toLocaleDateString('zh-TW')}　共 ${selectedLots.size} 筆地號`,PAD,20);
+
+  // 圖例
+  const legend=[
+    {cls:'R',label:'租賃'},{cls:'B',label:'自購'},{cls:'S',label:'委託'},
+    {cls:'V',label:'已訪'},{cls:'C',label:'異動'},{cls:'O',label:'其他'},
+    {cls:'U',label:'未訪'},{cls:'ROAD',label:'道路',color:'#ffffff'}
+  ];
+  let lx=canvas.width-PAD;
+  ctx.font='10px -apple-system,sans-serif';
+  [...legend].reverse().forEach(({cls,label,color})=>{
+    const c=color||CLR_DARK[cls];
+    const tw=ctx.measureText(label).width;
+    lx-=(tw+20);
+    ctx.fillStyle=c;
+    ctx.fillRect(lx,8,12,12);
+    ctx.strokeStyle='rgba(255,255,255,.3)';
+    ctx.strokeRect(lx,8,12,12);
+    ctx.fillStyle='#9ba4be';
+    ctx.textAlign='left';
+    ctx.fillText(label,lx+15,19);
+    lx-=8;
+  });
+
+  // 先畫所有多邊形（填色）
+  lotPolygons.forEach(({poly,cls,isRoad})=>{
+    if(!poly) return;
+    const pts=poly.pts.map(p=>geoToCanvas(p[0],p[1]));
+    if(pts.length<2) return;
+
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0],pts[0][1]);
+    pts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));
+    if(poly.closed) ctx.closePath();
+
+    // 填色
+    ctx.fillStyle=isRoad?ROAD_CLR:(CLR_DARK[cls]||CLR_DARK.U);
+    ctx.globalAlpha=isRoad?1:0.85;
+    ctx.fill();
+    ctx.globalAlpha=1;
+
+    // 邊框
+    ctx.strokeStyle=isRoad?'#cccccc':(CLR_LIGHT[cls]||CLR_LIGHT.U);
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+  });
+
+  // 再畫文字（在多邊形上方）
+  lotPolygons.forEach(({lot,poly,txt,data,cls,isRoad})=>{
+    // 計算地號中心
+    let cx,cy;
+    if(poly&&poly.pts.length>0){
+      const lngs=poly.pts.map(p=>p[0]);
+      const lats=poly.pts.map(p=>p[1]);
+      const cLng=(Math.min(...lngs)+Math.max(...lngs))/2;
+      const cLat=(Math.min(...lats)+Math.max(...lats))/2;
+      [cx,cy]=geoToCanvas(cLng,cLat);
+    } else if(txt){
+      [cx,cy]=geoToCanvas(txt.lng,txt.lat);
+    } else return;
+
+    // 計算格子大小（用多邊形邊界框）
+    let boxW=60,boxH=60;
+    if(poly&&poly.pts.length>0){
+      const lngs=poly.pts.map(p=>p[0]);
+      const lats=poly.pts.map(p=>p[1]);
+      boxW=Math.abs((Math.max(...lngs)-Math.min(...lngs))*scale);
+      boxH=Math.abs((Math.max(...lats)-Math.min(...lats))*scale);
+    }
+    const boxMin=Math.min(boxW,boxH);
+
+    // 文字顏色
+    const txtColor=isRoad?'#333333':'#ffffff';
+    const subColor=isRoad?'#555555':'rgba(255,255,255,.75)';
+
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+
+    // 根據格子大小決定字體和顯示內容
+    if(boxMin<18){
+      // 極小格子：只顯示地號（最小字）
+      const fs=Math.max(5,Math.min(8,boxMin*0.5));
+      ctx.font=`bold ${fs}px -apple-system,sans-serif`;
+      ctx.fillStyle=txtColor;
+      ctx.fillText(lot,cx,cy);
+    } else if(boxMin<35){
+      // 小格子：地號 + 業主（若有）
+      const fs=Math.max(7,Math.min(11,boxMin*0.35));
+      ctx.font=`bold ${fs}px -apple-system,sans-serif`;
+      ctx.fillStyle=txtColor;
+      ctx.fillText(lot,cx,cy-(data?fs*0.5:0));
+      if(data&&data.owner){
+        ctx.font=`${Math.max(5,fs*0.75)}px -apple-system,sans-serif`;
+        ctx.fillStyle=subColor;
+        ctx.fillText(clip(data.owner,6),cx,cy+fs*0.6);
+      }
+    } else {
+      // 大格子：顯示所有資料
+      const lines=buildLines(lot,data,isRoad);
+      const maxLine=Math.max(...lines.map(l=>l.text.length));
+      const fsBase=Math.max(7,Math.min(16,boxMin/(lines.length+0.5)*0.7));
+      let yOff=cy-((lines.length-1)*fsBase*1.3)/2;
+      lines.forEach(({text,big,sub})=>{
+        const fs=big?fsBase:fsBase*0.8;
+        ctx.font=`${big?'bold ':''} ${fs}px -apple-system,sans-serif`;
+        ctx.fillStyle=sub?subColor:txtColor;
+        ctx.fillText(clip(text, Math.floor(boxW/(fs*0.6))), cx, yOff);
+        yOff+=fs*1.35;
+      });
+    }
+  });
+
+  document.getElementById('print-btn').style.display='block';
+}
+
+function buildLines(lot,d,isRoad){
+  const lines=[{text:lot,big:true}];
+  if(isRoad){lines.push({text:'道路',sub:true});return lines;}
+  if(!d) return lines;
+  if(d.owner)  lines.push({text:d.owner});
+  if(d.zone)   lines.push({text:d.zone,sub:true});
+  if(d.area)   lines.push({text:d.area+'㎡',sub:true});
+  if(d.tsubo)  lines.push({text:d.tsubo+'坪',sub:true});
+  if(d.build)  lines.push({text:'建'+d.build+'坪',sub:true});
+  if(d.price)  lines.push({text:d.price});
+  if(d.date)   lines.push({text:d.date,sub:true});
+  if(d.prog)   lines.push({text:d.prog,sub:true});
+  if(d.note)   lines.push({text:d.note,sub:true});
+  return lines;
+}
+function clip(str,max){ return str&&str.length>max?str.slice(0,max)+'…':str; }
+
+// ══════════════════════════════════════════
+// 列印
+// ══════════════════════════════════════════
+function printReport(){
+  // 把 canvas 轉成圖片，開新視窗列印
+  const canvas=document.getElementById('preview-canvas');
+  const dataUrl=canvas.toDataURL('image/png');
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <title>仁龍段商圈圖</title>
+    <style>
+      *{margin:0;padding:0;box-sizing:border-box;}
+      body{background:#0a0d14;}
+      img{width:100%;height:auto;display:block;}
+      @media print{
+        body{background:white;}
+        img{width:100%;page-break-inside:avoid;}
+        @page{size:A4 landscape;margin:10mm;}
+      }
+    </style>
+    </head><body>
+    <img src="${dataUrl}">
+    <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`);
+  win.document.close();
+}
+
+// ══════════════════════════════════════════
+// DXF 資料引用（從內嵌資料）
+// ══════════════════════════════════════════
+// 這些在 DXF_DATA 嵌入後設定
+let DXF_POLYS=[], DXF_TEXTS=[];
+
+// ══════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════
+window.addEventListener('resize',()=>{
+  if(document.getElementById('preview-canvas').style.display!=='none'){
+    generateReport();
+  }
+});
+
+// 從 cadastral.html 同樣的 DXF 資料源取得
+// 動態載入 DXF 資料
+async function loadDXF(){
+  try{
+    // 嘗試從同域取得 cadastral.html 抽取 DXF 資料
+    const res=await fetch('cadastral.html');
+    const text=await res.text();
+    const m=text.match(/const DXF_DATA=(\{.+?\});/s);
+    if(m){
+      const data=JSON.parse(m[1]);
+      DXF_POLYS=data.polys;
+      DXF_TEXTS=data.texts;
+      console.log(`DXF載入：${DXF_POLYS.length}條線、${DXF_TEXTS.length}個標籤`);
+      renderLotList();
+    }
+  }catch(e){
+    console.error('DXF載入失敗',e);
+  }
+}
+
+document.querySelectorAll('.fb').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.fb').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+}));
+
+loadDXF();
+syncSheets();
+</script>
+</body>
+</html>

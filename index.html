@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>仁龍段商圈地圖</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0f1117;--sf:#181c27;--sf2:#1e2333;--bd:#2d3348;--bd2:#3a4260;
+  --ac:#4f8ef7;--tx:#dde2f0;--tx2:#9ba4be;--tx3:#5d6785;
+  --V:#2ecc8f;--U:#4a5578;--C:#f0a500;--R:#9b72f5;--B:#e85d5d;--S:#38bdf8;--O:#fb923c;
+}
+html,body{height:100%;overflow:hidden;}
+body{font-family:-apple-system,"Noto Sans TC",sans-serif;background:var(--bg);color:var(--tx);display:flex;flex-direction:column;}
+
+.nav{background:var(--sf);border-bottom:1px solid var(--bd);height:46px;display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;}
+.nav-title{font-size:14px;font-weight:700;color:var(--ac);flex:1;}
+.nav-link{background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--tx2);text-decoration:none;white-space:nowrap;}
+.nav-link.active,.nav-link:hover{background:var(--ac);border-color:var(--ac);color:#fff;}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--U);cursor:pointer;flex-shrink:0;transition:background .3s;}
+.sdot.ok{background:var(--V);}
+.sdot.loading{background:var(--C);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.fbar{background:var(--sf);border-bottom:1px solid var(--bd);padding:6px 10px;display:flex;gap:6px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.fbar::-webkit-scrollbar{display:none;}
+.srch{flex:1;min-width:90px;background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:5px 9px;color:var(--tx);font-size:13px;outline:none;}
+.srch:focus{border-color:var(--ac);}
+.fb{flex-shrink:0;background:var(--sf2);border:1.5px solid var(--bd);border-radius:8px;padding:4px 9px;color:var(--tx2);font-size:11px;cursor:pointer;white-space:nowrap;font-weight:500;}
+.fb.active{background:var(--ac);border-color:var(--ac);color:#fff;}
+
+#map{flex:1;position:relative;}
+
+.stats-bar{position:absolute;top:10px;left:10px;z-index:400;display:flex;gap:5px;flex-wrap:wrap;max-width:60%;}
+.stat-chip{background:rgba(24,28,39,.88);border:1px solid var(--bd);border-radius:12px;padding:3px 8px;font-size:10px;color:var(--tx2);display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px);}
+.stat-chip .dot{width:7px;height:7px;border-radius:50%;}
+
+.lgd{position:absolute;bottom:50px;right:10px;z-index:400;background:rgba(24,28,39,.92);border:1px solid var(--bd);border-radius:10px;padding:8px 12px;box-shadow:0 4px 16px rgba(0,0,0,.5);}
+.li{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--tx2);margin-bottom:3px;}
+.li:last-child{margin-bottom:0;}
+.ld{width:10px;height:10px;border-radius:50%;}
+
+.locate-btn{position:absolute;bottom:10px;left:10px;z-index:400;background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:7px 11px;font-size:12px;font-weight:600;color:var(--tx);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+
+.bot{background:var(--sf);border-top:1px solid var(--bd);padding:6px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.bot-txt{font-size:11px;color:var(--tx3);flex:1;}
+.bot-btn{border:none;border-radius:7px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;background:var(--ac);color:#fff;}
+
+/* Leaflet */
+.leaflet-control-zoom a{background:var(--sf)!important;color:var(--tx)!important;border-color:var(--bd)!important;}
+.leaflet-popup-content-wrapper{background:var(--sf)!important;color:var(--tx)!important;border:1px solid var(--bd2);border-radius:12px!important;box-shadow:0 8px 32px rgba(0,0,0,.6)!important;}
+.leaflet-popup-tip{background:var(--sf)!important;}
+.leaflet-popup-content{font-size:13px;line-height:1.7;margin:12px 14px!important;}
+.pu-name{font-size:16px;font-weight:800;color:var(--ac);margin-bottom:4px;}
+.pu-badge{display:inline-block;padding:2px 10px;border-radius:10px;font-size:11px;font-weight:700;margin-bottom:9px;}
+.pu-row{display:flex;gap:8px;font-size:12px;margin-bottom:3px;}
+.pu-lbl{color:var(--tx2);min-width:50px;flex-shrink:0;}
+.pu-val{color:var(--tx);font-weight:600;}
+.pu-price{color:var(--C);font-size:15px;font-weight:800;}
+.pu-note{font-size:11px;color:var(--tx2);margin-top:6px;border-top:1px solid var(--bd);padding-top:5px;line-height:1.5;}
+.pu-cad-link{display:block;margin-top:8px;background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.3);border-radius:7px;padding:5px 10px;text-align:center;font-size:11px;font-weight:700;color:var(--ac);text-decoration:none;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-title">🗺 仁龍段商圈</div>
+  <a class="nav-link active" href="index.html">地圖</a>
+  <a class="nav-link" href="cadastral.html">地籍圖</a>
+  <a class="nav-link" href="report.html">📋 報表</a>
+  <span class="sdot" id="sdot" onclick="syncSheets()"></span>
+  <span style="font-size:10px;color:var(--tx3);cursor:pointer" onclick="syncSheets()" id="stxt">同步</span>
+</div>
+
+<div class="fbar">
+  <input class="srch" type="search" id="search" placeholder="搜尋業主、地號、地址…" autocomplete="off">
+  <button class="fb active" data-filter="all">全部</button>
+  <button class="fb" data-filter="R">租賃</button>
+  <button class="fb" data-filter="B">自購</button>
+  <button class="fb" data-filter="S">委託</button>
+  <button class="fb" data-filter="V">已訪</button>
+  <button class="fb" data-filter="C">異動</button>
+  <button class="fb" data-filter="O">其他</button>
+  <button class="fb" data-filter="U">未訪</button>
+</div>
+
+<div id="map">
+  <!-- 統計 -->
+  <div class="stats-bar" id="stats-bar"></div>
+
+  <!-- 圖例 -->
+  <div class="lgd">
+    <div class="li"><span class="ld" style="background:var(--R)"></span>租賃</div>
+    <div class="li"><span class="ld" style="background:var(--B)"></span>自購</div>
+    <div class="li"><span class="ld" style="background:var(--S)"></span>委託</div>
+    <div class="li"><span class="ld" style="background:var(--V)"></span>已訪</div>
+    <div class="li"><span class="ld" style="background:var(--C)"></span>異動</div>
+    <div class="li"><span class="ld" style="background:var(--O)"></span>其他</div>
+    <div class="li"><span class="ld" style="background:var(--U)"></span>未訪</div>
+  </div>
+
+  <!-- 定位按鈕 -->
+  <button class="locate-btn" onclick="locateMe()">📍 定位</button>
+</div>
+
+<div class="bot">
+  <span class="bot-txt" id="bot-txt">尚未同步，點右上角同步按鈕載入資料</span>
+  <button class="bot-btn" onclick="syncSheets()">🔄 同步</button>
+</div>
+
+<script>
+const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSoo54DLyQ_hkcfjC9vbB9zinOwhz1aaQfUIq-vuFjiKcJJiiIoiTBldICIihbThqm0JDC0ZXv5V6PE/pub?output=csv';
+const CLR = {V:'#2ecc8f',U:'#4a5578',C:'#f0a500',R:'#9b72f5',B:'#e85d5d',S:'#38bdf8',O:'#fb923c'};
+const STAT = {V:'已訪問',U:'未訪問',C:'有異動',S:'已委託',R:'租賃',B:'自購',O:'其他'};
+const STAT_LABEL = {V:'已訪',U:'未訪',C:'異動',R:'租賃',B:'自購',S:'委託',O:'其他'};
+
+let rows = [], curFilter = 'all', searchQ = '', map, mkLayer;
+
+// ── 狀態判斷 ──
+function getCls(s, c) {
+  if (/委託/i.test(s)) return 'S';
+  if (/租/i.test(c) || /租|出租/i.test(s)) return 'R';
+  if (/購|買/i.test(c) || /購|買/i.test(s)) return 'B';
+  if (/異動|更新/i.test(s)) return 'C';
+  if (/已訪|拜訪/i.test(s)) return 'V';
+  if (/銷售|出售|自用/i.test(s)) return 'O';
+  return 'U';
+}
+
+// ── 解析緯經度（支援多種格式）──
+function parseLL(str) {
+  if (!str || !str.trim()) return null;
+  // 移除空白
+  str = str.trim();
+  // 格式1: 22.123456, 120.123456
+  const m = str.match(/(2[12]\.\d+)[,，\s]+(12[01]\.\d+)/);
+  if (m) return [parseFloat(m[1]), parseFloat(m[2])];
+  // 格式2: 120.xxx, 22.xxx（經度在前）
+  const m2 = str.match(/(12[01]\.\d+)[,，\s]+(2[12]\.\d+)/);
+  if (m2) return [parseFloat(m2[2]), parseFloat(m2[1])];
+  return null;
+}
+
+// ── CSV 解析 ──
+function parseCSV(text) {
+  const lines = text.replace(/^\uFEFF/, '').split(/\r?\n/);
+  const out = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"' && inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { cols.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    cols.push(cur);
+    out.push(cols.map(c => c.trim()));
+  }
+  return out;
+}
+
+// ── 同步狀態 UI ──
+function setSyncUI(state, txt) {
+  const d = document.getElementById('sdot');
+  d.className = 'sdot' + (state==='ok' ? ' ok' : state==='loading' ? ' loading' : '');
+  document.getElementById('stxt').textContent = txt;
+}
+
+// ── Google Sheets 同步 ──
+async function syncSheets() {
+  setSyncUI('loading', '同步中…');
+  try {
+    const res = await fetch(SHEET_CSV);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const parsed = parseCSV(await res.text());
+    if (parsed.length < 2) throw new Error('無資料');
+    const H = parsed[0];
+    const col = (r, k) => {
+      const i = H.findIndex(h => h.includes(k));
+      return i >= 0 ? (r[i] || '') : '';
+    };
+
+    rows = [];
+    let noCoord = 0;
+    for (let i = 1; i < parsed.length; i++) {
+      const r = parsed[i];
+      if (r.every(c => !c)) continue;
+      const llStr = col(r, '緯經度');
+      const ll = parseLL(llStr);
+      if (!ll) { noCoord++; continue; }
+
+      rows.push({
+        owner:   col(r, '所有權人'),
+        date:    col(r, '日期'),
+        entrust: col(r, '委託日期'),
+        area:    col(r, '面積'),
+        tsubo:   col(r, '地坪'),
+        build:   col(r, '建坪'),
+        zone:    col(r, '分區'),
+        price:   col(r, '開價'),
+        note:    col(r, '內容'),
+        prog:    col(r, '追蹤進度'),
+        pos:     col(r, '位置'),
+        llRaw:   llStr,
+        cls:     getCls(col(r, '狀態'), col(r, '類別')),
+        lat:     ll[0],
+        lng:     ll[1]
+      });
+    }
+
+    const now = new Date().toLocaleTimeString('zh-TW', {hour:'2-digit', minute:'2-digit'});
+    setSyncUI('ok', now);
+    document.getElementById('bot-txt').textContent =
+      `已同步 ${now}｜${rows.length} 筆有座標｜${noCoord} 筆無座標`;
+
+    renderMarkers();
+    updateStats();
+
+    // 自動跳到資料範圍
+    if (rows.length > 0) {
+      const lats = rows.map(r => r.lat);
+      const lngs = rows.map(r => r.lng);
+      const bounds = L.latLngBounds(
+        [Math.min(...lats) - 0.002, Math.min(...lngs) - 0.002],
+        [Math.max(...lats) + 0.002, Math.max(...lngs) + 0.002]
+      );
+      map.fitBounds(bounds, {padding: [30, 30]});
+    }
+  } catch(err) {
+    setSyncUI('', '失敗');
+    document.getElementById('bot-txt').textContent = '同步失敗：' + err.message;
+    console.error(err);
+  }
+}
+
+// ── 圖標 SVG ──
+function mkIcon(cls) {
+  const c = CLR[cls] || CLR.U;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+    <ellipse cx="16" cy="38" rx="5" ry="2" fill="rgba(0,0,0,.2)"/>
+    <path d="M16 2C10 2 5 7 5 13c0 9 11 23 11 23S27 22 27 13C27 7 22 2 16 2z" fill="${c}" stroke="#fff" stroke-width="2"/>
+    <circle cx="16" cy="13" r="5.5" fill="#fff" opacity=".92"/>
+  </svg>`;
+  return L.divIcon({html: svg, className: '', iconSize: [32,40], iconAnchor: [16,40], popupAnchor: [0,-40]});
+}
+
+// ── 渲染標記 ──
+function renderMarkers() {
+  mkLayer.clearLayers();
+  const q = searchQ.toLowerCase();
+
+  rows.forEach(row => {
+    if (curFilter !== 'all' && row.cls !== curFilter) return;
+    if (q && ![row.owner, row.pos, row.note, row.prog].join(' ').toLowerCase().includes(q)) return;
+
+    const c = CLR[row.cls] || CLR.U;
+    const m = L.marker([row.lat, row.lng], {icon: mkIcon(row.cls)});
+
+    // Popup 完整資料
+    const popup = `
+      <div class="pu-name">${row.owner || '（未填業主）'}</div>
+      <span class="pu-badge" style="background:${c}22;color:${c}">${STAT[row.cls]||''}</span>
+      ${row.pos  ? `<div class="pu-row"><span class="pu-lbl">地號/位置</span><span class="pu-val">${row.pos}</span></div>` : ''}
+      ${row.zone ? `<div class="pu-row"><span class="pu-lbl">分區</span><span class="pu-val">${row.zone}</span></div>` : ''}
+      ${row.area ? `<div class="pu-row"><span class="pu-lbl">面積</span><span class="pu-val">${row.area}㎡</span></div>` : ''}
+      ${row.tsubo? `<div class="pu-row"><span class="pu-lbl">地坪</span><span class="pu-val">${row.tsubo}坪</span></div>` : ''}
+      ${row.build? `<div class="pu-row"><span class="pu-lbl">建坪</span><span class="pu-val">${row.build}坪</span></div>` : ''}
+      ${row.price? `<div class="pu-row"><span class="pu-lbl">開價</span><span class="pu-price">${row.price}</span></div>` : ''}
+      ${row.date ? `<div class="pu-row"><span class="pu-lbl">拜訪日期</span><span class="pu-val">${row.date}</span></div>` : ''}
+      ${row.entrust?`<div class="pu-row"><span class="pu-lbl">委託日期</span><span class="pu-val">${row.entrust}</span></div>`:''}
+      ${row.prog ? `<div class="pu-note">📋 ${row.prog}</div>` : ''}
+      ${row.note ? `<div class="pu-note">💬 ${row.note}</div>` : ''}
+      <a class="pu-cad-link" href="cadastral.html">📐 在地籍圖查看</a>
+    `;
+    m.bindPopup(popup, {maxWidth: 280});
+    mkLayer.addLayer(m);
+  });
+
+  updateStats();
+}
+
+// ── 統計列 ──
+function updateStats() {
+  const cnt = {};
+  const visible = rows.filter(r => {
+    if (curFilter !== 'all' && r.cls !== curFilter) return false;
+    const q = searchQ.toLowerCase();
+    if (q && ![r.owner, r.pos, r.note, r.prog].join(' ').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  visible.forEach(r => { cnt[r.cls] = (cnt[r.cls]||0)+1; });
+
+  const bar = document.getElementById('stats-bar');
+  if (!visible.length) { bar.innerHTML = ''; return; }
+
+  bar.innerHTML = Object.entries(cnt)
+    .sort((a,b) => b[1]-a[1])
+    .map(([cls,n]) =>
+      `<div class="stat-chip"><span class="dot" style="background:${CLR[cls]}"></span>${STAT_LABEL[cls]} ${n}</div>`
+    ).join('');
+}
+
+// ── GPS 定位 ──
+function locateMe() {
+  map.locate({setView: true, maxZoom: 18});
+}
+
+// ── 地圖初始化 ──
+function initMap() {
+  // 預設中心放在仁龍段正確位置
+  map = L.map('map', {center: [22.691, 120.367], zoom: 16});
+
+  // 衛星底圖（與地籍圖一致）
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'© Esri',maxZoom:20}).addTo(map);
+  // 道路標注疊加
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'© OSM',maxZoom:20,opacity:0.35}).addTo(map);
+
+  map.on('locationfound', e => {
+    L.circleMarker(e.latlng, {radius:10,color:'#4f8ef7',fillColor:'#4f8ef7',fillOpacity:.35,weight:2}).addTo(map);
+    map.setView(e.latlng, 18);
+  });
+  map.on('locationerror', () => {
+    document.getElementById('bot-txt').textContent = '無法取得 GPS 位置';
+  });
+
+  mkLayer = L.layerGroup().addTo(map);
+}
+
+// ── 事件綁定 ──
+document.querySelectorAll('.fb').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.fb').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  curFilter = b.dataset.filter;
+  renderMarkers();
+}));
+
+document.getElementById('search').addEventListener('input', e => {
+  searchQ = e.target.value;
+  renderMarkers();
+});
+
+// ── 初始化 ──
+initMap();
+setTimeout(syncSheets, 500);
+</script>
+</body>
+</html>
