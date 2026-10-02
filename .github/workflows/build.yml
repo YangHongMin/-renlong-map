@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - "pptx/**"
+      - "scripts/build.py"
 permissions:
   contents: write
 jobs:
