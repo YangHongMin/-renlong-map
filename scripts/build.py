@@ -146,3 +146,27 @@ for p in sorted((ROOT / "pptx").glob("*")):
     p.unlink()  # 處理完刪除，避免 PPTX 被公開下載
 
 f.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
+
+
+# 每個物件產生一個分享頁（讓 FB / LINE 貼連結時顯示該物件的照片與標題）
+import html
+SITE = "https://fulllife.blog"
+pdir = ROOT / "p"
+pdir.mkdir(exist_ok=True)
+for l in data:
+    img = f"{SITE}/{l['photos'][0]}" if l.get("photos") else ""
+    t = html.escape(l["title"] + "｜富住通大型工業地產")
+    d = html.escape(f"{l['price']}｜{l['area']}｜{l['zoning']}｜土地{l['land_ping']}坪 建坪{l['build_ping']}坪｜洽楊紘珉 0905-858-141")
+    u = f"{SITE}/p/{l['id']}.html"
+    (pdir / f"{l['id']}.html").write_text(f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<title>{t}</title>
+<meta property="og:type" content="website">
+<meta property="og:title" content="{t}">
+<meta property="og:description" content="{d}">
+<meta property="og:image" content="{img}">
+<meta property="og:url" content="{u}">
+<meta name="twitter:card" content="summary_large_image">
+<script>location.replace("../?id={l['id']}")</script>
+</head><body><a href="../?id={l['id']}">查看物件：{t}</a></body></html>
+""", "utf-8")
