@@ -1,0 +1,38 @@
+[
+  {
+    "id": "IND-001",
+    "title": "【範例】仁武工業區獨棟廠房",
+    "type": "售",
+    "price": "3,800 萬",
+    "area": "高雄市仁武區",
+    "zoning": "乙種工業用地",
+    "land_ping": 300,
+    "build_ping": 420,
+    "height": "8 米",
+    "power": "三相 150kVA",
+    "crane": "5 噸天車 1 部",
+    "truck": "可進出 40 呎貨櫃車",
+    "condition": "空置，可立即交屋",
+    "status": "上架",
+    "desc": "這是範例資料，請用您自己的物件取代。",
+    "photos": []
+  },
+  {
+    "id": "IND-002",
+    "title": "【範例】仁武廠辦出租",
+    "type": "租",
+    "price": "月租 12 萬",
+    "area": "高雄市仁武區",
+    "zoning": "丁種建築用地",
+    "land_ping": 180,
+    "build_ping": 250,
+    "height": "6 米",
+    "power": "三相 100kVA",
+    "crane": "無",
+    "truck": "可進出 20 呎貨櫃車",
+    "condition": "空置",
+    "status": "上架",
+    "desc": "這是範例資料，請用您自己的物件取代。",
+    "photos": []
+  }
+]
