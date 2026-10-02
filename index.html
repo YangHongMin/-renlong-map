@@ -3,76 +3,109 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>工業不動產物件｜仁武・高雄</title>
-<meta property="og:title" content="工業不動產物件｜仁武・高雄">
+<title>富住通大型工業地產｜高雄工業廠房</title>
+<meta property="og:title" content="富住通大型工業地產｜高雄工業廠房">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#1f2a33;--steel:#2f4b5c;--line:#d5d9dc;--bg:#eceeef;--card:#fff;--acc:#e8590c;--mute:#5d6b75}
+:root{--navy:#1e3a8a;--red:#c8302a;--orange:#e08a0a;--blue:#0a58b0;--ink:#1f2937;--mute:#667085;--line:#dfe3e8;--bg:#f3f5f8}
 *{box-sizing:border-box}
 body{margin:0;font-family:"Noto Sans TC",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
-header{background:var(--steel);color:#fff;padding:28px 20px}
-header h1{margin:0;font-size:26px;font-weight:900;letter-spacing:.02em}
-header p{margin:4px 0 0;opacity:.8;font-size:14px}
+a{color:inherit}
+header{background:var(--navy);border-bottom:4px solid var(--red)}
+.bar{max-width:1000px;margin:0 auto;padding:14px 20px 6px}
+.bar img{height:36px;max-width:100%;display:block}
+nav{max-width:1000px;margin:0 auto;padding:0 20px 10px;display:flex;gap:18px;flex-wrap:wrap;font-size:14px}
+nav a{color:#fff;text-decoration:none;opacity:.85}nav a.on{opacity:1;font-weight:700;border-bottom:2px solid #fff}
 main{max-width:1000px;margin:0 auto;padding:20px}
-.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
-.filters button{border:1px solid var(--line);background:var(--card);padding:8px 16px;border-radius:4px;font:inherit;cursor:pointer}
-.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+h1{font-size:22px;margin:0 0 14px;color:var(--navy);font-weight:900}
+.panel{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;margin-bottom:18px}
+.panel label{color:var(--red);font-weight:700;font-size:15px}
+.panel select,.panel input{font:inherit;padding:7px 10px;border:1px solid #c9ced6;border-radius:5px;background:#fff}
+.panel button{background:var(--blue);color:#fff;border:0;border-radius:5px;padding:8px 20px;font:inherit;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:4px;overflow:hidden;text-decoration:none;color:inherit;display:block}
+.card{background:#fff;border:1px solid var(--line);border-radius:6px;overflow:hidden;text-decoration:none;display:block}
 .ph{aspect-ratio:4/3;background:#cfd5d9 center/cover;display:flex;align-items:center;justify-content:center;font-size:40px;position:relative}
-.tag{position:absolute;left:0;top:12px;background:var(--acc);color:#fff;font-size:13px;font-weight:700;padding:2px 12px}
-.tag.done{background:var(--mute)}
-.info{padding:14px 16px}
-.info h3{margin:0 0 4px;font-size:17px}
-.info .meta{color:var(--mute);font-size:14px}
-.price{font-weight:900;font-size:20px;color:var(--acc);margin-top:6px}
-table{width:100%;border-collapse:collapse;background:var(--card);margin:16px 0}
+.tag{position:absolute;left:0;top:12px;background:var(--red);color:#fff;font-size:13px;font-weight:700;padding:2px 12px}
+.tag.rent{background:var(--blue)}.tag.done{background:var(--mute)}
+.info{padding:14px 16px}.info h3{margin:0 0 4px;font-size:17px}
+.meta{color:var(--mute);font-size:14px}.price{font-weight:900;font-size:20px;color:var(--red);margin-top:6px}
+table{width:100%;border-collapse:collapse;background:#fff;margin:16px 0;border:1px solid var(--line)}
 th,td{padding:10px 14px;border-bottom:1px solid var(--line);text-align:left;font-size:15px}
-th{width:30%;color:var(--mute);font-weight:500}
-.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+th{width:28%;color:var(--navy);font-weight:700;background:#f7f8fb}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
 .gal img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px}
-.line{position:fixed;left:0;right:0;bottom:0;background:#06c755;color:#fff;text-align:center;padding:16px;font-weight:700;font-size:17px;text-decoration:none}
-.back{display:inline-block;margin-bottom:12px;color:var(--steel)}
-footer{padding:28px 20px 90px;text-align:center;color:var(--mute);font-size:13px}
+.back{display:inline-block;margin-bottom:10px;color:var(--blue);text-decoration:none}
+.contact{display:flex;gap:16px;align-items:center;background:#fff;border:1px solid var(--line);border-left:5px solid var(--red);border-radius:6px;padding:16px;margin:18px 0;flex-wrap:wrap}
+.contact img{width:84px;height:96px;object-fit:cover;border-radius:4px}
+.contact b{font-size:18px}.contact .sub{color:var(--mute);font-size:14px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.btn{padding:10px 20px;border-radius:5px;color:#fff;text-decoration:none;font-weight:700}
+.btn.line{background:#06c755}.btn.tel{background:var(--navy)}
+.fab{position:fixed;right:14px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:5}
+.fab a{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:700;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.fab .l{background:#06c755}.fab .t{background:#2a6aa8;font-size:22px}
+#toast{display:none;position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:5px;font-size:14px;z-index:9}
+footer{background:var(--navy);color:#dbe3f5;padding:28px 20px 40px;font-size:14px;line-height:1.9}
+footer .in{max-width:1000px;margin:0 auto}footer img{height:30px;margin-bottom:10px}
+footer b{color:#fff}footer a{color:#fff}
 </style>
 </head>
 <body>
-<header><h1>仁武工業不動產</h1><p>廠房・土地・工業用地｜高雄</p></header>
+<header>
+ <div class="bar"><a href="./"><img src="logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
+ <nav><a class="on" href="./">工業物件</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a></nav>
+</header>
 <main id="app"></main>
-<footer>【富茂通商用不動產股份有限公司｜楊紘珉｜(114)登字第486430號】<br>本網站資料僅供參考，實際內容以現場及契約為準</footer>
+<div class="fab"><a class="l" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="lineGo()">LINE</a><a class="t" href="tel:0905858141" aria-label="撥打電話">☎</a></div>
+<div id="toast">已複製物件編號，請在 LINE 貼上傳送</div>
+<footer><div class="in">
+ <img src="logo.png" alt="富住通商用不動產"><br>
+ <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
+ 營業員：楊紘珉｜(114)登字第486430號<br>
+ 地址：高雄市新興區六合路182號32樓｜統一編號：00174687<br>
+ 電話：(07)225-5858｜傳真：(07)225-1555｜手機：0905-858-141、0978-133-561<br>
+ E-mail：h8136758@gmail.com｜LINE ID：0905858141<br>
+ <a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a>｜<a href="https://www.0211.com.tw/object/" target="_blank" rel="noopener">更多物件</a><br>
+ <span style="opacity:.75">關懷・家庭・文化・國際｜本網站資料僅供參考，實際內容以現場及契約為準</span>
+</div></footer>
 <script>
-const LINE_ID="@447lrpzt";
-const lineUrl=(l)=>"https://line.me/R/oaMessage/"+LINE_ID+"/?"+encodeURIComponent("我想詢問物件 "+l.id+"｜"+l.title);
+const LINE_URL="https://lin.ee/S6hfHqge";
+let all=[],F={type:"",area:"",kw:""},msg="我想詢問工業物件";
 const $=document.getElementById("app");
-let all=[],flt="全部";
+const dist=l=>((l.area||"").match(/[市縣](.+?[區鄉鎮市])/)||[])[1]||"";
+function lineGo(){try{navigator.clipboard.writeText(msg)}catch(e){}const t=document.getElementById("toast");t.style.display="block";setTimeout(()=>t.style.display="none",3500)}
 fetch("listings.json").then(r=>r.json()).then(d=>{all=d;route()}).catch(()=>{$.textContent="資料載入失敗，請稍後再試。"});
 window.addEventListener("popstate",route);
-function route(){
-  const id=new URLSearchParams(location.search).get("id");
-  const l=all.find(x=>x.id===id);
-  l?detail(l):list();
-}
-function cover(l){const p=(l.photos||[])[0];return p?`background-image:url('${p}')`:""}
-function list(){
-  document.title="工業不動產物件｜仁武・高雄";
-  const types=["全部","售","租"];
-  const rows=all.filter(l=>flt==="全部"||l.type===flt);
-  $.innerHTML=`<div class="filters">${types.map(t=>`<button class="${t===flt?"on":""}" onclick="setF('${t}')">${t==="全部"?t:"出"+t}</button>`).join("")}</div>
-  <div class="grid">${rows.map(l=>`<a class="card" href="?id=${l.id}" onclick="go(event,'${l.id}')">
-   <div class="ph" style="${cover(l)}">${(l.photos||[])[0]?"":"🏭"}<span class="tag ${l.status==="已成交"?"done":""}">${l.status==="已成交"?"已成交":"出"+l.type}</span></div>
-   <div class="info"><h3>${l.title}</h3><div class="meta">${l.area}｜${l.zoning}｜土地 ${l.land_ping} 坪｜建坪 ${l.build_ping} 坪</div><div class="price">${l.price}</div></div></a>`).join("")||"目前沒有物件"}</div>`;
-}
-function setF(t){flt=t;list()}
+function route(){const id=new URLSearchParams(location.search).get("id");const l=all.find(x=>x.id===id);l?detail(l):list()}
 function go(e,id){e.preventDefault();history.pushState({},"","?id="+id);route();scrollTo(0,0)}
+function home(e){e.preventDefault();history.pushState({},"","./");route()}
+function list(){
+  document.title="富住通大型工業地產｜高雄工業廠房";msg="我想詢問工業物件";
+  const areas=[...new Set(all.map(dist).filter(Boolean))];
+  $.innerHTML=`<h1>工業廠房・工業用地</h1><div class="panel">
+   <label>類別：</label><select id="ft"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
+   <label>區域：</label><select id="fa"><option value="">不限</option>${areas.map(a=>`<option>${a}</option>`).join("")}</select>
+   <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><div class="grid" id="grid"></div>`;
+  ["ft","fa"].forEach(i=>{const e=document.getElementById(i);e.value=F[i==="ft"?"type":"area"];e.onchange=draw});
+  const k=document.getElementById("fk");k.value=F.kw;k.oninput=draw;draw();
+}
+function draw(){
+  F.type=document.getElementById("ft").value;F.area=document.getElementById("fa").value;F.kw=document.getElementById("fk").value.trim();
+  const rows=all.filter(l=>(!F.type||l.type===F.type)&&(!F.area||dist(l)===F.area)&&(!F.kw||[l.title,l.area,l.zoning,l.desc,l.note].join(" ").includes(F.kw)));
+  document.getElementById("grid").innerHTML=rows.map(l=>{const p=(l.photos||[])[0];const done=l.status==="已成交";
+   return `<a class="card" href="?id=${l.id}" onclick="go(event,'${l.id}')"><div class="ph" style="${p?`background-image:url('${p}')`:""}">${p?"":"🏭"}<span class="tag ${done?"done":l.type==="租"?"rent":""}">${done?"已成交":"出"+l.type}</span></div>
+   <div class="info"><h3>${l.title}</h3><div class="meta">${l.area}｜${l.zoning}｜土地 ${l.land_ping} 坪｜建坪 ${l.build_ping} 坪</div><div class="price">${l.price}</div></div></a>`}).join("")||"目前沒有符合的物件";
+}
 function detail(l){
-  document.title=l.title+"｜工業不動產";
+  document.title=l.title+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;
   const rows=[["編號",l.id],["區域",l.area],["價格",l.price],["使用分區",l.zoning],["基地面積",l.land_ping?l.land_ping+" 坪":""],["建物面積",l.build_ping?l.build_ping+" 坪":""],["備註",l.note]].filter(r=>r[1]);
-  $.innerHTML=`<a class="back" href="./" onclick="event.preventDefault();history.pushState({},'','./');route()">← 回物件列表</a>
-  <h2>${l.title}</h2>
+  $.innerHTML=`<a class="back" href="./" onclick="home(event)">← 回物件列表</a><h1>${l.title}</h1>
   <div class="gal">${(l.photos||[]).map(p=>`<img src="${p}" loading="lazy" alt="">`).join("")}</div>
   <table>${rows.map(r=>`<tr><th>${r[0]}</th><td>${r[1]}</td></tr>`).join("")}</table>
-  <p>${(l.desc||"").split("；").map(x=>"・"+x).join("<br>")}</p>
-  ${l.status==="已成交"?"":`<a class="line" href="${lineUrl(l)}">LINE 詢問這個物件</a>`}`;
+  <p>${(l.desc||"").split("；").filter(Boolean).map(x=>"・"+x).join("<br>")}</p>
+  ${l.status==="已成交"?"":`<div class="contact"><img src="avatar.jpg" alt="楊紘珉"><div><b>楊紘珉</b><div class="sub">富住通商用不動產｜大型工業地產</div>
+   <div>0905-858-141｜0978-133-561</div><div class="btns"><a class="btn line" href="${LINE_URL}" target="_blank" rel="noopener" onclick="lineGo()">LINE 詢問這個物件</a><a class="btn tel" href="tel:0905858141">撥打電話</a></div>
+   <div class="sub" style="margin-top:6px">按 LINE 會自動複製物件編號，到 LINE 貼上傳送即可。</div></div></div>`}`;
 }
 </script>
 </body>
