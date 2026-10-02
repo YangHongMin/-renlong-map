@@ -43,7 +43,9 @@ th{width:28%;color:var(--navy);font-weight:700;background:#f7f8fb}
 .btn.line{background:#06c755}.btn.tel{background:var(--navy)}
 .fab{position:fixed;right:14px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:5}
 .fab a{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-weight:700;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
-.fab .l{background:#06c755}.fab .t{background:#2a6aa8;font-size:22px}
+.fab .s{background:var(--orange);font-size:20px}.fab .l{background:#06c755}.fab .t{background:#2a6aa8;font-size:22px}
+#smenu{display:none;position:fixed;right:76px;bottom:20px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.2);padding:6px;z-index:6}
+#smenu a{display:block;padding:9px 18px;text-decoration:none;color:var(--ink);font-size:15px;border-radius:5px;cursor:pointer}#smenu a:hover{background:var(--bg)}
 #toast{display:none;position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:5px;font-size:14px;z-index:9}
 footer{background:var(--navy);color:#dbe3f5;padding:28px 20px 40px;font-size:14px;line-height:1.9}
 footer .in{max-width:1000px;margin:0 auto}footer img{height:30px;margin-bottom:10px}
@@ -56,7 +58,8 @@ footer b{color:#fff}footer a{color:#fff}
  <nav><a class="on" href="./">工業物件</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a></nav>
 </header>
 <main id="app"></main>
-<div class="fab"><a class="l" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="lineGo()">LINE</a><a class="t" href="tel:0905858141" aria-label="撥打電話">☎</a></div>
+<div id="smenu"><a onclick="sfb()">分享到 Facebook</a><a onclick="sln()">分享到 LINE</a><a onclick="scp()">複製連結</a><a id="smore" style="display:none" onclick="smore()">更多⋯</a></div>
+<div class="fab"><a class="s" href="#" onclick="share(event)" aria-label="分享">⤴</a><a class="l" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="lineGo()">LINE</a><a class="t" href="tel:0905858141" aria-label="撥打電話">☎</a></div>
 <div id="toast">已複製物件編號，請在 LINE 貼上傳送</div>
 <footer><div class="in">
  <img src="logo.png" alt="富住通商用不動產"><br>
@@ -70,14 +73,22 @@ const LINE_URL="https://lin.ee/S6hfHqge";
 let all=[],F={type:"",area:"",kw:""},msg="我想詢問工業物件";
 const $=document.getElementById("app");
 const dist=l=>((l.area||"").match(/[市縣](.+?[區鄉鎮市])/)||[])[1]||"";
-function lineGo(){try{navigator.clipboard.writeText(msg)}catch(e){}const t=document.getElementById("toast");t.style.display="block";setTimeout(()=>t.style.display="none",3500)}
+let curId="";
+function toast(x){const t=document.getElementById("toast");t.textContent=x;t.style.display="block";setTimeout(()=>t.style.display="none",3500)}
+function lineGo(){try{navigator.clipboard.writeText(msg)}catch(e){}toast("已複製物件編號，請在 LINE 貼上傳送")}
+const shareUrl=()=>location.origin+(curId?"/p/"+curId+".html":"/");
+function share(e){e.preventDefault();const m=document.getElementById("smenu");m.style.display=m.style.display==="block"?"none":"block";document.getElementById("smore").style.display=navigator.share?"block":"none"}
+function sfb(){window.open("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(shareUrl()),"_blank","noopener");document.getElementById("smenu").style.display="none"}
+function sln(){window.open("https://social-plugins.line.me/lineit/share?url="+encodeURIComponent(shareUrl()),"_blank","noopener");document.getElementById("smenu").style.display="none"}
+function scp(){try{navigator.clipboard.writeText(shareUrl())}catch(e){}document.getElementById("smenu").style.display="none";toast("已複製連結")}
+function smore(){navigator.share({title:document.title,url:shareUrl()}).catch(()=>{});document.getElementById("smenu").style.display="none"}
 fetch("listings.json").then(r=>r.json()).then(d=>{all=d;route()}).catch(()=>{$.textContent="資料載入失敗，請稍後再試。"});
 window.addEventListener("popstate",route);
 function route(){const id=new URLSearchParams(location.search).get("id");const l=all.find(x=>x.id===id);l?detail(l):list()}
 function go(e,id){e.preventDefault();history.pushState({},"","?id="+id);route();scrollTo(0,0)}
 function home(e){e.preventDefault();history.pushState({},"","./");route()}
 function list(){
-  document.title="富住通大型工業地產｜高雄工業廠房";msg="我想詢問工業物件";
+  document.title="富住通大型工業地產｜高雄工業廠房";msg="我想詢問工業物件";curId="";
   const areas=[...new Set(all.map(dist).filter(Boolean))];
   $.innerHTML=`<h1>工業廠房・工業用地</h1><div class="panel">
    <label>類別：</label><select id="ft"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
@@ -94,7 +105,7 @@ function draw(){
    <div class="info"><h3>${l.title}</h3><div class="meta">${l.area}｜${l.zoning}｜土地 ${l.land_ping} 坪｜建坪 ${l.build_ping} 坪</div><div class="price">${l.price}</div></div></a>`}).join("")||"目前沒有符合的物件";
 }
 function detail(l){
-  document.title=l.title+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;
+  document.title=l.title+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;
   const rows=[["編號",l.id],["區域",l.area],["價格",l.price],["使用分區",l.zoning],["基地面積",l.land_ping?l.land_ping+" 坪":""],["建物面積",l.build_ping?l.build_ping+" 坪":""],["備註",l.note]].filter(r=>r[1]);
   $.innerHTML=`<a class="back" href="./" onclick="home(event)">← 回物件列表</a><h1>${l.title}</h1>
   <div class="gal">${(l.photos||[]).map(p=>`<img src="${p}" loading="lazy" alt="">`).join("")}</div>
