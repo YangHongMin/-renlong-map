@@ -102,7 +102,7 @@ function draw(){
   const rows=all.filter(l=>(!F.type||l.type===F.type)&&(!F.area||dist(l)===F.area)&&(!F.kw||[l.title,l.area,l.zoning,l.desc,l.note].join(" ").includes(F.kw)));
   document.getElementById("grid").innerHTML=rows.map(l=>{const p=(l.photos||[])[0];const done=l.status==="已成交";
    return `<a class="card" href="?id=${l.id}" onclick="go(event,'${l.id}')"><div class="ph" style="${p?`background-image:url('${p}')`:""}">${p?"":"🏭"}<span class="tag ${done?"done":l.type==="租"?"rent":""}">${done?"已成交":"出"+l.type}</span></div>
-   <div class="info"><h3>${l.title}</h3><div class="meta">${l.area}｜${l.zoning}｜土地 ${l.land_ping} 坪｜建坪 ${l.build_ping} 坪</div><div class="price">${l.price}</div></div></a>`}).join("")||"目前沒有符合的物件";
+   <div class="info"><h3>${l.title}</h3><div class="meta">${[l.area,l.zoning,l.land_ping?"土地 "+l.land_ping+" 坪":"",l.build_ping?"建坪 "+l.build_ping+" 坪":""].filter(Boolean).join("｜")}</div><div class="price">${l.price}</div></div></a>`}).join("")||"目前沒有符合的物件";
 }
 function detail(l){
   document.title=l.title+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;
