@@ -1,10 +1,31 @@
-import io, re, json, hashlib, shutil, pathlib
+import io, os, re, sys, json, base64, hashlib, shutil, pathlib, html
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from PIL import Image, ImageOps
 
 ROOT = pathlib.Path(".")
-CITY = "高雄市"
+SITE = "https://fulllife.blog"
+MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+# 含這些字的投影片（謄本、使用執照等）完全不處理：文字不送 AI、圖片不公開
+SENSITIVE = ["使用執照", "謄本", "測量成果", "登記簿", "所有權狀", "身分證", "契約"]
+MAX_CAND = 30
+
+PROMPT = """你是工業不動產物件資料整理員。以下是一份物件簡報的文字（已排除謄本、使用執照等頁面）與候選圖片。
+請只輸出 JSON，欄位如下：
+title：物件標題，例如「仁武區 工業廠房 小坪數好用廠房出售」，不含公司名
+type："售" 或 "租"
+price：價格，照原文（如 "5,300萬（每坪約 32萬）"、"月租 45.35萬"、"160萬/坪"），不要自行計算
+land_ping：土地坪數，只填數字字串；沒有則 ""
+build_ping：建物坪數，只填數字字串；沒有則 ""
+zoning：使用分區，如 "乙種工業區"、"丁種建築用地"、"住四(50%/300%)"
+area：公開地址，只到「縣市＋區＋路/街/巷」，不得含門牌號碼、巷弄號、地號、段號
+note：公開備註（面寬、深度、路寬、樓高、電力、天車、載重、完工日、結構等客觀資料，用「、」分隔），沒有則 ""
+desc：投資亮點／訴求重點，每點一句，用「；」分隔
+photo_ids：候選圖片中屬於「實景照片」的編號（整數陣列），依適合展示的順序排列（外觀、空拍優先），最多 12 個
+規則：
+- 實景照片＝建物外觀、內部、空拍、周邊街景實拍。排除：地圖、地籍圖、平面圖、配置圖、證件文件、謄本、截圖、logo、橫幅、人像。
+- 絕對不得寫入任何欄位：屋主姓名、同行出價、議價空間、「後台內容」等內部備註、電話、公司名稱。
+- 原文沒有的欄位填空字串，不要猜測或編造。"""
 
 
 def walk(shapes):
@@ -26,147 +47,138 @@ def slide_lines(slide):
     return out
 
 
-def is_boiler(t, minlen=4):
-    return "富住通" in t or "關懷" in t or len(t) < minlen
-
-
-def photos_of(slide, seen, min_w=2.5, min_h=2.0):
-    """只取尺寸夠大的圖（排除 logo、圖示、橫幅）"""
-    res = []
-    for s in walk(slide.shapes):
-        try:
-            if s.width / 914400 < min_w or s.height / 914400 < min_h:
-                continue
-            blob = s.image.blob
-        except Exception:
-            continue
-        h = hashlib.md5(blob).hexdigest()
-        if h in seen:
-            continue
-        seen.add(h)
-        res.append(blob)
-    return res
-
-
-def parse(path):
+def read_pptx(path):
     prs = Presentation(path)
-    slides = list(prs.slides)
-    texts = [slide_lines(s) for s in slides]
-    alltext = "\n".join("\n".join(t) for t in texts)
-
-    def find(pat):
-        m = re.search(pat, alltext)
-        return m.group(1).strip() if m else ""
-
-    d = {}
-    # 標題：封面非公司字樣的文字
-    d["title"] = " ".join(t for t in texts[0] if not is_boiler(t, 2)) if texts else path.stem
-    # 售 / 租與價格
-    if "售價" in alltext:
-        d["type"] = "售"
-        d["price"] = find(r"售價[：:]\s*([\d,\.]+\s*萬)")
-        u = find(r"售價[：:][^（\n]*（每坪約\s*([\d\.]+\s*萬)")
-        if u:
-            d["price"] += f"（每坪約 {u}）"
-    else:
-        d["type"] = "租"
-        d["price"] = "月租 " + find(r"月租金[：:]\s*([\d,\.]+\s*萬)")
-        u = find(r"月租金[：:][^（\n]*（每坪約\s*([\d\.]+\s*元)")
-        if u:
-            d["price"] += f"（每坪約 {u}）"
-    d["land_ping"] = find(r"基地面積[：:]\s*約?\s*([\d\.]+)")
-    d["build_ping"] = find(r"建物面積[：:]\s*約?\s*([\d\.]+)")
-    d["zoning"] = find(r"使用分區[：:]\s*(\S+)")
-    # 地址只保留到路/街/巷，不含門牌
-    m = re.search(r"([\u4e00-\u9fa5]{1,4}[區鄉鎮市][\u4e00-\u9fa5]{1,8}?[路街巷道段])[\d0-9一二三四五六七八九十]", alltext)
-    d["area"] = CITY + m.group(1) if m else CITY
-    # 備註與尺寸資訊
-    notes = []
-    n = find(r"備註[：:]([^\n]*)")
-    if n:
-        notes.append(n)
-    road = False
-    for l in sum(texts, []):
-        if re.match(r"^(面寬|深度)\s*\d", l):
-            notes.append(l)
-        elif "路寬" in l and not road:
-            road, _ = True, notes.append(re.sub(r"\s+", "", l))
-    d["note"] = "、".join(notes)
-    # 投資亮點
-    hl = []
-    for t in texts:
-        if any("投資亮點" in l for l in t):
-            hl = [l for l in t if not is_boiler(l) and "投資亮點" not in l]
-    d["desc"] = "；".join(re.sub(r"^\d+[\.、]\s*", "", l) for l in hl)
-
-    # 照片：封面 + 標題含「現況拍攝」的投影片
-    seen, blobs = set(), []
-    for i, (s, t) in enumerate(zip(slides, texts)):
-        if i == 0 or any("現況拍攝" in l for l in t):
-            blobs += photos_of(s, seen)
-    return d, blobs
+    texts, cands, seen = [], [], set()
+    for i, s in enumerate(prs.slides, 1):
+        lines = slide_lines(s)
+        if any(k in "".join(lines) for k in SENSITIVE):
+            continue
+        texts.append(f"[第{i}頁]\n" + "\n".join(lines))
+        for shp in walk(s.shapes):
+            try:
+                if shp.width / 914400 < 2.5 or shp.height / 914400 < 2.0:
+                    continue  # 太小：logo、圖示
+                blob = shp.image.blob
+                h = hashlib.md5(blob).hexdigest()
+                if h in seen:
+                    continue
+                seen.add(h)
+                im = Image.open(io.BytesIO(blob))
+                if im.width * im.height > 60_000_000:
+                    continue  # 超大掃描檔，不是現場照片
+                im.draft("RGB", (1024, 1024))
+                im = ImageOps.exif_transpose(im).convert("RGB")
+                im.thumbnail((512, 512))
+                buf = io.BytesIO()
+                im.save(buf, "JPEG", quality=70)
+                cands.append({"page": i, "blob": blob,
+                              "b64": base64.b64encode(buf.getvalue()).decode()})
+            except Exception:
+                continue
+    return "\n\n".join(texts), cands[:MAX_CAND]
 
 
-def save_photos(pid, blobs):
+def ask_gpt(text, cands):
+    from openai import OpenAI
+    content = [{"type": "text", "text": PROMPT + "\n\n簡報文字：\n" + text}]
+    for k, c in enumerate(cands):
+        content.append({"type": "text", "text": f"圖片編號 {k}（第{c['page']}頁）"})
+        content.append({"type": "image_url",
+                        "image_url": {"url": "data:image/jpeg;base64," + c["b64"], "detail": "low"}})
+    r = OpenAI().chat.completions.create(
+        model=MODEL, temperature=0,
+        response_format={"type": "json_object"},
+        messages=[{"role": "user", "content": content}])
+    return json.loads(r.choices[0].message.content)
+
+
+def clean(d, cands):
+    g = lambda k: str(d.get(k, "") or "").strip()
+    if g("type") not in ("售", "租"):
+        raise ValueError("無法判斷售/租：" + g("type"))
+    area = re.sub(r"[\d０-９].*$", "", g("area"))  # 再保險：砍掉門牌與地號
+    if area and not re.search(r"[市縣]", area):
+        area = "高雄市" + area
+    ids = [k for k in d.get("photo_ids", []) if isinstance(k, int) and 0 <= k < len(cands)]
+    ids = list(dict.fromkeys(ids))[:12]
+    return {"title": g("title"), "type": g("type"), "price": g("price"),
+            "land_ping": g("land_ping"), "build_ping": g("build_ping"),
+            "zoning": g("zoning"), "area": area, "note": g("note"), "desc": g("desc")}, ids
+
+
+def save_photos(pid, cands, ids):
     out = ROOT / "img" / pid
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
     paths = []
-    for i, b in enumerate(blobs, 1):
-        im = ImageOps.exif_transpose(Image.open(io.BytesIO(b))).convert("RGB")
+    for n, k in enumerate(ids, 1):
+        im = ImageOps.exif_transpose(Image.open(io.BytesIO(cands[k]["blob"]))).convert("RGB")
         im.thumbnail((1600, 1600))
-        im.save(out / f"{i}.jpg", "JPEG", quality=80, optimize=True)
-        paths.append(f"img/{pid}/{i}.jpg")
+        im.save(out / f"{n}.jpg", "JPEG", quality=80, optimize=True)
+        paths.append(f"img/{pid}/{n}.jpg")
     return paths
 
 
-f = ROOT / "listings.json"
-data = json.loads(f.read_text("utf-8")) if f.exists() else []
-data = [l for l in data if not l["title"].startswith("【範例】")]
-
-for p in sorted((ROOT / "pptx").glob("*")):
-    if p.suffix.lower() != ".pptx":
-        continue
-    d, blobs = parse(p)
-    old = next((l for l in data if l.get("src") == p.name), None)
-    if old:
-        pid = old["id"]
-    else:
-        nums = [int(l["id"][4:]) for l in data if l["id"][4:].isdigit()]
-        pid = "IND-%03d" % (max(nums, default=0) + 1)
-    rec = {"id": pid, "src": p.name, **d,
-           "status": old["status"] if old else "上架",
-           "photos": save_photos(pid, blobs)}
-    if old:
-        data[data.index(old)] = rec
-    else:
-        data.append(rec)
-    print(pid, p.name, len(blobs), "photos")
-    p.unlink()  # 處理完刪除，避免 PPTX 被公開下載
-
-f.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
-
-
-# 每個物件產生一個分享頁（讓 FB / LINE 貼連結時顯示該物件的照片與標題）
-import html
-SITE = "https://fulllife.blog"
-pdir = ROOT / "p"
-pdir.mkdir(exist_ok=True)
-for l in data:
-    img = f"{SITE}/{l['photos'][0]}" if l.get("photos") else ""
-    t = html.escape(l["title"] + "｜富住通大型工業地產")
-    d = html.escape(f"{l['price']}｜{l['area']}｜{l['zoning']}｜土地{l['land_ping']}坪 建坪{l['build_ping']}坪｜洽楊紘珉 0905-858-141")
-    u = f"{SITE}/p/{l['id']}.html"
-    (pdir / f"{l['id']}.html").write_text(f"""<!DOCTYPE html>
+def write_share_pages(data):
+    pdir = ROOT / "p"
+    pdir.mkdir(exist_ok=True)
+    for l in data:
+        img = f"{SITE}/{l['photos'][0]}" if l.get("photos") else ""
+        t = html.escape(l["title"] + "｜富住通大型工業地產")
+        meta = [l["price"], l["area"], l["zoning"]]
+        if l.get("land_ping"): meta.append(f"土地{l['land_ping']}坪")
+        if l.get("build_ping"): meta.append(f"建坪{l['build_ping']}坪")
+        d = html.escape("｜".join(x for x in meta if x) + "｜洽楊紘珉 0905-858-141")
+        (pdir / f"{l['id']}.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <title>{t}</title>
 <meta property="og:type" content="website">
 <meta property="og:title" content="{t}">
 <meta property="og:description" content="{d}">
 <meta property="og:image" content="{img}">
-<meta property="og:url" content="{u}">
+<meta property="og:url" content="{SITE}/p/{l['id']}.html">
 <meta name="twitter:card" content="summary_large_image">
 <script>location.replace("../?id={l['id']}")</script>
 </head><body><a href="../?id={l['id']}">查看物件：{t}</a></body></html>
 """, "utf-8")
+
+
+def main():
+    f = ROOT / "listings.json"
+    data = json.loads(f.read_text("utf-8")) if f.exists() else []
+    data = [l for l in data if not l["title"].startswith("【範例】")]
+    failed = 0
+    for p in sorted((ROOT / "pptx").glob("*")):
+        if p.suffix.lower() != ".pptx":
+            continue
+        try:
+            text, cands = read_pptx(p)
+            d, ids = clean(ask_gpt(text, cands), cands)
+            old = next((l for l in data if l.get("src") == p.name), None)
+            if old:
+                pid = old["id"]
+            else:
+                nums = [int(l["id"][4:]) for l in data if l["id"][4:].isdigit()]
+                pid = "IND-%03d" % (max(nums, default=0) + 1)
+            rec = {"id": pid, "src": p.name, **d,
+                   "status": old["status"] if old else "上架",
+                   "photos": save_photos(pid, cands, ids)}
+            if old:
+                data[data.index(old)] = rec
+            else:
+                data.append(rec)
+            print("OK", pid, p.name, len(ids), "photos")
+            p.unlink()  # 成功才刪除；失敗會保留檔案方便重試
+        except Exception as e:
+            failed += 1
+            print("FAIL", p.name, repr(e))
+    f.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
+    write_share_pages(data)
+    if failed:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
