@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>物件管理</title>
+<style>
+:root{--navy:#1e3a8a;--red:#c8302a;--blue:#0a58b0;--ink:#1f2937;--mute:#667085;--line:#dfe3e8;--bg:#f3f5f8;--ok:#1a7f4b}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,"Noto Sans TC","Microsoft JhengHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.5}
+header{background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:4px solid var(--red)}
+header h1{margin:0;font-size:18px;flex:1}
+header a,header button{color:#fff;background:none;border:1px solid rgba(255,255,255,.5);border-radius:5px;padding:5px 12px;font:inherit;font-size:14px;cursor:pointer;text-decoration:none}
+main{max-width:760px;margin:0 auto;padding:16px}
+.box{background:#fff;border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:12px}
+.row{display:flex;gap:12px;align-items:flex-start}
+.th{width:84px;height:64px;border-radius:4px;background:#cfd5d9 center/cover;flex:none;display:flex;align-items:center;justify-content:center;font-size:24px}
+.row h3{margin:0 0 2px;font-size:16px}.meta{color:var(--mute);font-size:13px}.price{color:var(--red);font-weight:700}
+.pill{display:inline-block;font-size:12px;padding:1px 9px;border-radius:10px;background:#e6f4ec;color:var(--ok);margin-left:6px;vertical-align:middle}
+.pill.done{background:#eceff3;color:var(--mute)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button.b,a.b{border:1px solid var(--line);background:#fff;border-radius:5px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink);text-decoration:none}
+button.b.main{background:var(--blue);color:#fff;border-color:var(--blue)}
+button.b.del{color:var(--red);border-color:#f0c4c1}
+button:disabled{opacity:.5;cursor:wait}
+input,select,textarea{width:100%;font:inherit;padding:8px 10px;border:1px solid #c9ced6;border-radius:5px;background:#fff}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 3px}
+dialog{border:0;border-radius:10px;padding:18px;width:min(520px,94vw);max-height:90vh;overflow:auto}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;font-size:14px;display:none;z-index:9;max-width:90vw}
+.hint{color:var(--mute);font-size:13px}
+</style>
+</head>
+<body>
+<header><h1>物件管理</h1><a href="./" target="_blank">看網站</a><button id="out" style="display:none">登出</button></header>
+<main id="app"></main>
+<dialog id="dlg"></dialog>
+<div id="toast"></div>
+<script>
+const OWNER="YangHongMin",REPO="-renlong-map",BR="main";
+const API=`https://api.github.com/repos/${OWNER}/${REPO}/contents/`;
+let token=localStorage.getItem("gh_admin_token")||"",data=[],busy=false;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const b64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g,"")),c=>c.charCodeAt(0)));
+const b64e=s=>{let r="";new TextEncoder().encode(s).forEach(x=>r+=String.fromCharCode(x));return btoa(r)};
+function toast(t,ms=3500){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",ms)}
+
+async function gh(path,opt={}){
+  const get=!opt.method||opt.method==="GET";
+  const r=await fetch(API+encodeURI(path)+(get?`?ref=${BR}&_=${Date.now()}`:""),{...opt,cache:"no-store",
+    headers:{Authorization:"Bearer "+token,Accept:"application/vnd.github+json","Content-Type":"application/json"}});
+  if(!r.ok){const e=new Error("HTTP "+r.status);e.status=r.status;throw e}
+  return r.json();
+}
+async function readList(){const f=await gh("listings.json");return{sha:f.sha,data:JSON.parse(b64d(f.content))}}
+async function mutate(fn,msg){
+  for(let i=0;i<3;i++){
+    const {sha,data:d}=await readList();const out=fn(d);
+    try{
+      await gh("listings.json",{method:"PUT",body:JSON.stringify({message:msg,content:b64e(JSON.stringify(out,null,2)),sha,branch:BR})});
+      return out;
+    }catch(e){if((e.status!==409&&e.status!==422)||i===2)throw e}
+  }
+}
+async function delPath(p){
+  try{
+    const x=await gh(p);
+    for(const it of (Array.isArray(x)?x:[x]))
+      await gh(it.path,{method:"DELETE",body:JSON.stringify({message:"delete "+it.path,sha:it.sha,branch:BR})});
+  }catch(e){if(e.status!==404)throw e}
+}
+
+function login(){
+  $("out").style.display="none";
+  $("app").innerHTML=`<div class="box"><h3 style="margin-top:0">連線到 GitHub</h3>
+   <p class="hint">貼上專用的 GitHub token（只授權這個 repo 的 Contents 讀寫）。token 只會存在這台裝置的瀏覽器裡，請勿在公用電腦使用。</p>
+   <label>GitHub token</label><input id="tk" type="password" placeholder="github_pat_..." autocomplete="off">
+   <div class="btns"><button class="b main" id="go">連線</button></div></div>`;
+  $("go").onclick=async()=>{token=$("tk").value.trim();if(!token)return;
+    try{await readList();localStorage.setItem("gh_admin_token",token);start()}
+    catch(e){token="";toast(e.status===401||e.status===403?"token 無效或權限不足":"連線失敗："+e.message)}};
+}
+async function start(){
+  $("out").style.display="";$("app").innerHTML='<p class="hint">載入中…</p>';
+  try{data=(await readList()).data;render()}
+  catch(e){if(e.status===401||e.status===403){localStorage.removeItem("gh_admin_token");token="";login();toast("token 已失效，請重新貼上")}else $("app").innerHTML='<p>載入失敗：'+esc(e.message)+'</p>'}
+}
+function render(){
+  const n=data.filter(l=>l.status!=="已成交").length;
+  $("app").innerHTML=`<p class="hint">共 ${data.length} 筆｜上架 ${n}｜已成交 ${data.length-n}。儲存後約 1 分鐘網站更新。</p>`+
+  (data.map(l=>{const done=l.status==="已成交",p=(l.photos||[])[0];
+   return `<div class="box"><div class="row"><div class="th" style="${p?`background-image:url('${esc(p)}')`:""}">${p?"":"🏭"}</div>
+   <div style="flex:1;min-width:0"><h3>${esc(l.title)}<span class="pill ${done?"done":""}">${done?"已成交":"上架中"}</span></h3>
+   <div class="meta">${esc(l.id)}｜出${esc(l.type)}｜${esc(l.area)}</div><div class="price">${esc(l.price)}</div></div></div>
+   <div class="btns"><button class="b main" onclick="toggle('${l.id}')">${done?"重新上架":"標記已成交"}</button>
+   <button class="b" onclick="edit('${l.id}')">編輯</button><a class="b" href="./?id=${l.id}" target="_blank">查看</a>
+   <button class="b del" onclick="remove('${l.id}')">刪除</button></div></div>`}).join("")||'<div class="box">目前沒有物件</div>');
+}
+async function run(label,fn){
+  if(busy)return;busy=true;document.querySelectorAll("button").forEach(b=>b.disabled=true);toast(label+"…",60000);
+  try{await fn();render();toast("完成，約 1 分鐘後網站更新")}
+  catch(e){toast("失敗："+e.message+(e.status===403||e.status===401?"（權限不足或 token 失效）":""),6000)}
+  busy=false;document.querySelectorAll("button").forEach(b=>b.disabled=false);
+}
+const toggle=id=>run("更新狀態",async()=>{
+  data=await mutate(d=>{const l=d.find(x=>x.id===id);l.status=l.status==="已成交"?"上架":"已成交";return d},"status "+id)});
+function edit(id){
+  const l=data.find(x=>x.id===id);
+  const f=(k,lab,tag)=>`<label>${lab}</label>${tag==="ta"?`<textarea id="f_${k}" rows="3">${esc(l[k])}</textarea>`:`<input id="f_${k}" value="${esc(l[k])}">`}`;
+  $("dlg").innerHTML=`<h3 style="margin-top:0">編輯 ${esc(id)}</h3>
+   <label>售 / 租</label><select id="f_type"><option ${l.type==="售"?"selected":""}>售</option><option ${l.type==="租"?"selected":""}>租</option></select>
+   ${f("title","標題")}${f("price","價格")}${f("area","地址（只到路名）")}${f("zoning","使用分區")}
+   ${f("land_ping","土地坪數")}${f("build_ping","建物坪數")}${f("note","備註","ta")}${f("desc","特色（用「；」分隔）","ta")}
+   <div class="btns"><button class="b main" id="sv">儲存</button><button class="b" onclick="$('dlg').close()">取消</button></div>`;
+  $("dlg").showModal();
+  $("sv").onclick=()=>{const v={};["type","title","price","area","zoning","land_ping","build_ping","note","desc"].forEach(k=>v[k]=$("f_"+k).value.trim());
+    $("dlg").close();
+    run("儲存",async()=>{data=await mutate(d=>{Object.assign(d.find(x=>x.id===id),v);return d},"edit "+id)})};
+}
+function remove(id){
+  const l=data.find(x=>x.id===id);
+  if(!confirm(`確定要刪除「${l.title}」嗎？\n會一併刪除照片，無法復原。\n（只是成交的話，請改用「標記已成交」）`))return;
+  run("刪除",async()=>{
+    data=await mutate(d=>d.filter(x=>x.id!==id),"delete "+id);
+    await delPath("img/"+id);await delPath("p/"+id+".html");
+  });
+}
+$("out").onclick=()=>{localStorage.removeItem("gh_admin_token");token="";login()};
+token?start():login();
+</script>
+</body>
+</html>
