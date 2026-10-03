@@ -18,8 +18,8 @@ price：價格，照原文（如 "5,300萬（每坪約 32萬）"、"月租 45.35
 land_ping：土地坪數，只填數字字串；沒有則 ""
 build_ping：建物坪數，只填數字字串；沒有則 ""
 zoning：使用分區，如 "乙種工業區"、"丁種建築用地"、"住四(50%/300%)"
-area：公開地址，只到「縣市＋區＋路/街/巷」，不得含門牌號碼、巷弄號、地號、段號
-note：公開備註（面寬、深度、路寬、樓高、電力、天車、載重、完工日、結構等客觀資料，用「、」分隔），沒有則 ""
+area：公開地址，只到「縣市＋區/鄉/鎮＋路/街/巷」，縣市必須依原文地址填寫（可能是屏東縣、台南市等，不要預設高雄），不得含門牌號碼、巷弄號、地號、段號
+note：公開備註（面寬、深度、路寬、樓高、電力、天車、載重、完工日、結構、是否帶租約等客觀資料，用「、」分隔），沒有則 ""
 desc：投資亮點／訴求重點，每點一句，用「；」分隔
 photo_ids：候選圖片中屬於「實景照片」的編號（整數陣列），依適合展示的順序排列（外觀、空拍優先），最多 12 個
 規則：
@@ -47,12 +47,18 @@ def slide_lines(slide):
     return out
 
 
+def is_sensitive(lines):
+    """標題式的短行含關鍵字（如「使用執照」「測量成果圖」）才視為證件頁；
+    長句內文提到（如「依謄本登記為主」）不算。"""
+    return any(len(t) <= 14 and any(k in t for k in SENSITIVE) for t in lines)
+
+
 def read_pptx(path):
     prs = Presentation(path)
     texts, cands, seen = [], [], set()
     for i, s in enumerate(prs.slides, 1):
         lines = slide_lines(s)
-        if any(k in "".join(lines) for k in SENSITIVE):
+        if is_sensitive(lines):
             continue
         texts.append(f"[第{i}頁]\n" + "\n".join(lines))
         for shp in walk(s.shapes):
@@ -98,8 +104,6 @@ def clean(d, cands):
     if g("type") not in ("售", "租"):
         raise ValueError("無法判斷售/租：" + g("type"))
     area = re.sub(r"[\d０-９].*$", "", g("area"))  # 再保險：砍掉門牌與地號
-    if area and not re.search(r"[市縣]", area):
-        area = "高雄市" + area
     ids = [k for k in d.get("photo_ids", []) if isinstance(k, int) and 0 <= k < len(cands)]
     ids = list(dict.fromkeys(ids))[:12]
     return {"title": g("title"), "type": g("type"), "price": g("price"),
