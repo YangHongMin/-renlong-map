@@ -34,6 +34,12 @@ th,td{padding:10px 14px;border-bottom:1px solid var(--line);text-align:left;font
 th{width:28%;color:var(--navy);font-weight:700;background:#f7f8fb}
 .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
 .gal img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:4px}
+.join{display:flex;gap:20px;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-left:5px solid #06c755;border-radius:8px;padding:20px;margin-top:24px}
+.join h3{margin:0 0 6px;font-size:18px;color:var(--navy)}.join p{margin:0 0 12px;color:var(--mute);font-size:15px}
+.join .qr{width:128px;height:128px;flex:none}
+.btn.fb{background:#1877f2}
+@media(max-width:1100px){.join{padding-right:80px}}
+@media(max-width:700px){.join{padding-right:20px}.join .qr{display:none}}
 .back{display:inline-block;margin-bottom:10px;color:var(--blue);text-decoration:none}
 .contact{display:flex;gap:16px;align-items:center;background:#fff;border:1px solid var(--line);border-left:5px solid var(--red);border-radius:6px;padding:16px;margin:18px 0;flex-wrap:wrap}
 .contact img{width:84px;height:96px;object-fit:cover;border-radius:4px}
@@ -55,7 +61,7 @@ footer b{color:#fff}footer a{color:#fff}
 <body>
 <header>
  <div class="bar"><a href="./"><img src="logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
- <nav><a class="on" href="./">工業物件</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a></nav>
+ <nav><a class="on" href="./">工業物件</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
 </header>
 <main id="app"></main>
 <div id="smenu"><a onclick="sfb()">分享到 Facebook</a><a onclick="sln()">分享到 LINE</a><a onclick="scp()">複製連結</a><a id="smore" style="display:none" onclick="smore()">更多⋯</a></div>
@@ -65,11 +71,12 @@ footer b{color:#fff}footer a{color:#fff}
  <img src="logo.png" alt="富住通商用不動產"><br>
  <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
  營業員：楊紘珉｜(114)登字第486430號<br>
- <a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a>｜<a href="https://www.0211.com.tw/object/" target="_blank" rel="noopener">更多物件</a><br>
+ <a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a>｜<a href="https://www.0211.com.tw/object/" target="_blank" rel="noopener">更多物件</a>｜<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">Facebook 粉絲專頁</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a><br>
  <span style="opacity:.75">關懷・家庭・文化・國際｜本網站資料僅供參考，實際內容以現場及契約為準</span>
 </div></footer>
 <script>
-const LINE_URL="https://lin.ee/S6hfHqge";
+const LINE_URL="https://lin.ee/S6hfHqge",FB_URL="https://www.facebook.com/profile.php?id=61573837941258";
+const joinBlock=()=>`<div class="join"><div><h3>新物件・降價通知</h3><p>加入官方 LINE，第一時間收到新上架與行情；也可以直接告訴我您的需求（區域、坪數、預算），我幫您留意。</p><div class="btns"><a class="btn line" href="${LINE_URL}" target="_blank" rel="noopener">加入 LINE 官方帳號</a><a class="btn fb" href="${FB_URL}" target="_blank" rel="noopener">追蹤 Facebook 粉絲專頁</a></div></div><img class="qr" src="line_qr.png" alt="LINE 官方帳號 QR Code"></div>`;
 let all=[],F={type:"",area:"",kw:""},msg="我想詢問工業物件";
 const $=document.getElementById("app");
 const dist=l=>((l.area||"").match(/[市縣](.+?[區鄉鎮市])/)||[])[1]||"";
@@ -93,7 +100,7 @@ function list(){
   $.innerHTML=`<h1>工業廠房・工業用地</h1><div class="panel">
    <label>類別：</label><select id="ft"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
    <label>區域：</label><select id="fa"><option value="">不限</option>${areas.map(a=>`<option>${a}</option>`).join("")}</select>
-   <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><div class="grid" id="grid"></div>`;
+   <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><div class="grid" id="grid"></div>${joinBlock()}`;
   ["ft","fa"].forEach(i=>{const e=document.getElementById(i);e.value=F[i==="ft"?"type":"area"];e.onchange=draw});
   const k=document.getElementById("fk");k.value=F.kw;k.oninput=draw;draw();
 }
@@ -113,7 +120,7 @@ function detail(l){
   <p>${(l.desc||"").split("；").filter(Boolean).map(x=>"・"+x).join("<br>")}</p>
   ${l.status==="已成交"?"":`<div class="contact"><img src="avatar.jpg" alt="楊紘珉"><div><b>楊紘珉</b><div class="sub">富住通商用不動產｜大型工業地產</div>
    <div>0905-858-141｜0978-133-561</div><div class="btns"><a class="btn line" href="${LINE_URL}" target="_blank" rel="noopener" onclick="lineGo()">LINE 詢問這個物件</a><a class="btn tel" href="tel:0905858141">撥打電話</a></div>
-   <div class="sub" style="margin-top:6px">按 LINE 會自動複製物件編號，到 LINE 貼上傳送即可。</div></div></div>`}`;
+   <div class="sub" style="margin-top:6px">按 LINE 會自動複製物件編號，到 LINE 貼上傳送即可。</div></div></div>`}${joinBlock()}`;
 }
 </script>
 </body>
