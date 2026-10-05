@@ -18,6 +18,7 @@ main{max-width:760px;margin:0 auto;padding:16px}
 .th{width:84px;height:64px;border-radius:4px;background:#cfd5d9 center/cover;flex:none;display:flex;align-items:center;justify-content:center;font-size:24px}
 .row h3{margin:0 0 2px;font-size:16px}.meta{color:var(--mute);font-size:13px}.price{color:var(--red);font-weight:700}
 .pill{display:inline-block;font-size:12px;padding:1px 9px;border-radius:10px;background:#e6f4ec;color:var(--ok);margin-left:6px;vertical-align:middle}
+.pill.wait{background:#fff1e0;color:#b45309}
 .pill.done{background:#eceff3;color:var(--mute)}
 .btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 button.b,a.b{border:1px solid var(--line);background:#fff;border-radius:5px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer;color:var(--ink);text-decoration:none}
@@ -88,14 +89,17 @@ async function start(){
   catch(e){if(e.status===401||e.status===403){localStorage.removeItem("gh_admin_token");token="";login();toast("token 已失效，請重新貼上")}else $("app").innerHTML='<p>載入失敗：'+esc(e.message)+'</p>'}
 }
 function render(){
-  const n=data.filter(l=>l.status!=="已成交").length;
-  $("app").innerHTML=`<p class="hint">共 ${data.length} 筆｜上架 ${n}｜已成交 ${data.length-n}。儲存後約 1 分鐘網站更新。</p>`+
-  (data.map(l=>{const done=l.status==="已成交",p=(l.photos||[])[0];
+  const n=data.filter(l=>l.status==="上架").length,w=data.filter(l=>l.status==="待確認").length,d=data.length-n-w;
+  const rank=l=>l.status==="待確認"?0:1;
+  const rows=[...data].sort((x,y)=>rank(x)-rank(y));
+  $("app").innerHTML=`<p class="hint">共 ${data.length} 筆｜待確認 ${w}｜上架 ${n}｜已成交 ${d}。儲存後約 1 分鐘網站更新。</p>`+
+  (w?`<div class="box" style="border-left:5px solid #e08a0a">有 ${w} 筆新物件等待確認。請先按「預覽」檢查標題、價格、照片，沒問題再按「確認上架」，確認前訪客看不到。</div>`:"")+
+  (rows.map(l=>{const done=l.status==="已成交",wait=l.status==="待確認",p=(l.photos||[])[0];
    return `<div class="box"><div class="row"><div class="th" style="${p?`background-image:url('${esc(p)}')`:""}">${p?"":"🏭"}</div>
-   <div style="flex:1;min-width:0"><h3>${esc(l.title)}<span class="pill ${done?"done":""}">${done?"已成交":"上架中"}</span></h3>
+   <div style="flex:1;min-width:0"><h3>${esc(l.title)}<span class="pill ${done?"done":wait?"wait":""}">${done?"已成交":wait?"待確認":"上架中"}</span></h3>
    <div class="meta">${esc(l.id)}｜出${esc(l.type)}｜${esc(l.area)}</div><div class="price">${esc(l.price)}</div></div></div>
-   <div class="btns"><button class="b main" onclick="toggle('${l.id}')">${done?"重新上架":"標記已成交"}</button>
-   <button class="b" onclick="edit('${l.id}')">編輯</button><a class="b" href="./?id=${l.id}" target="_blank">查看</a>
+   <div class="btns"><button class="b main" onclick="toggle('${l.id}')">${wait?"確認上架":done?"重新上架":"標記已成交"}</button>
+   <button class="b" onclick="edit('${l.id}')">編輯</button><a class="b" href="./?id=${l.id}${wait?"&preview=1":""}" target="_blank">${wait?"預覽":"查看"}</a>
    <button class="b del" onclick="remove('${l.id}')">刪除</button></div></div>`}).join("")||'<div class="box">目前沒有物件</div>');
 }
 async function run(label,fn){
@@ -105,7 +109,7 @@ async function run(label,fn){
   busy=false;document.querySelectorAll("button").forEach(b=>b.disabled=false);
 }
 const toggle=id=>run("更新狀態",async()=>{
-  data=await mutate(d=>{const l=d.find(x=>x.id===id);l.status=l.status==="已成交"?"上架":"已成交";return d},"status "+id)});
+  data=await mutate(d=>{const l=d.find(x=>x.id===id);l.status=l.status==="上架"?"已成交":"上架";return d},"status "+id)});
 function edit(id){
   const l=data.find(x=>x.id===id);
   const f=(k,lab,tag)=>`<label>${lab}</label>${tag==="ta"?`<textarea id="f_${k}" rows="3">${esc(l[k])}</textarea>`:`<input id="f_${k}" value="${esc(l[k])}">`}`;
