@@ -158,15 +158,16 @@ def main():
         if p.suffix.lower() != ".pptx":
             continue
         try:
+            src = re.sub(r"^\d{14}__", "", p.name)  # n8n 上傳時會加時間前綴避免同名衝突
             text, cands = read_pptx(p)
             d, ids = clean(ask_gpt(text, cands), cands)
-            old = next((l for l in data if l.get("src") == p.name), None)
+            old = next((l for l in data if l.get("src") == src), None)
             if old:
                 pid = old["id"]
             else:
                 nums = [int(l["id"][4:]) for l in data if l["id"][4:].isdigit()]
                 pid = "IND-%03d" % (max(nums, default=0) + 1)
-            rec = {"id": pid, "src": p.name, **d,
+            rec = {"id": pid, "src": src, **d,
                    "status": old["status"] if old else "待確認",
                    "photos": save_photos(pid, cands, ids)}
             if old:
