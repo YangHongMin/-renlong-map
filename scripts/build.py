@@ -167,7 +167,7 @@ def main():
                 nums = [int(l["id"][4:]) for l in data if l["id"][4:].isdigit()]
                 pid = "IND-%03d" % (max(nums, default=0) + 1)
             rec = {"id": pid, "src": p.name, **d,
-                   "status": old["status"] if old else "上架",
+                   "status": old["status"] if old else "待確認",
                    "photos": save_photos(pid, cands, ids)}
             if old:
                 data[data.index(old)] = rec
