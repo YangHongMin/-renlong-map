@@ -128,8 +128,15 @@ def save_photos(pid, cands, ids):
 def write_share_pages(data):
     pdir = ROOT / "p"
     pdir.mkdir(exist_ok=True)
+    live = set()
     for l in data:
-        img = f"{SITE}/{l['photos'][0]}" if l.get("photos") else ""
+        # 待確認的物件不產生分享頁（避免標題、價格、照片外洩）
+        if l.get("status") == "待確認" or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(l.get("id", ""))):
+            continue
+        live.add(f"{l['id']}.html")
+        ph = l.get("photos") or []
+        ph0 = ph[0] if ph and re.fullmatch(r"img/[\w\-/.]+", str(ph[0])) and ".." not in ph[0] else ""
+        img = html.escape(f"{SITE}/{ph0}") if ph0 else ""
         t = html.escape(l["title"] + "｜富住通大型工業地產")
         meta = [l["price"], l["area"], l["zoning"]]
         if l.get("land_ping"): meta.append(f"土地{l['land_ping']}坪")
@@ -147,6 +154,11 @@ def write_share_pages(data):
 <script>location.replace("../?id={l['id']}")</script>
 </head><body><a href="../?id={l['id']}">查看物件：{t}</a></body></html>
 """, "utf-8")
+    # 清掉不再公開的舊分享頁；資料為空時不動（防止 listings.json 被清空時誤刪）
+    if data:
+        for f in pdir.glob("*.html"):
+            if f.name not in live:
+                f.unlink()
 
 
 def main():
