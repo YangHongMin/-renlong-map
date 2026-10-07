@@ -4,6 +4,7 @@ on:
     paths:
       - "pptx/**"
       - "scripts/build.py"
+      - "listings.json"
 concurrency:
   group: build-listings
   cancel-in-progress: false
