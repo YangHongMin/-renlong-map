@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src https://api.github.com; base-uri 'none'; form-action 'none'; object-src 'none'">
 <title>物件管理</title>
 <style>
 :root{--navy:#1e3a8a;--red:#c8302a;--blue:#0a58b0;--ink:#1f2937;--mute:#667085;--line:#dfe3e8;--bg:#f3f5f8;--ok:#1a7f4b}
@@ -41,9 +43,17 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 <script>
 const OWNER="YangHongMin",REPO="-renlong-map",BR="main";
 const API=`https://api.github.com/repos/${OWNER}/${REPO}/contents/`;
-let token=localStorage.getItem("gh_admin_token")||"",data=[],busy=false;
+const TK="gh_admin_token";
+const ls=(f)=>{try{return f()}catch(e){return null}};
+let token=ls(()=>sessionStorage.getItem(TK))||ls(()=>localStorage.getItem(TK))||"",data=[],busy=false;
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const okId=s=>typeof s==="string"&&/^[A-Za-z0-9_-]{1,40}$/.test(s);
+const okImg=s=>typeof s==="string"&&/^img\/[A-Za-z0-9_\-\/.]+$/.test(s)&&!s.includes("..");
+function saveTok(t,remember){
+  ls(()=>{sessionStorage.setItem(TK,t);remember?localStorage.setItem(TK,t):localStorage.removeItem(TK);localStorage.setItem("is_owner","1")});
+}
+function clearTok(){ls(()=>{sessionStorage.removeItem(TK);localStorage.removeItem(TK)});token=""}
 const b64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g,"")),c=>c.charCodeAt(0)));
 const b64e=s=>{let r="";new TextEncoder().encode(s).forEach(x=>r+=String.fromCharCode(x));return btoa(r)};
 function toast(t,ms=3500){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",ms)}
@@ -76,25 +86,28 @@ async function delPath(p){
 function login(){
   $("out").style.display="none";
   $("app").innerHTML=`<div class="box"><h3 style="margin-top:0">連線到 GitHub</h3>
-   <p class="hint">貼上專用的 GitHub token（只授權這個 repo 的 Contents 讀寫）。token 只會存在這台裝置的瀏覽器裡，請勿在公用電腦使用。</p>
+   <p class="hint">貼上專用的 GitHub token（只授權這個 repo 的 Contents 讀寫）。預設只在這個分頁有效，關閉分頁就會清除；請勿在公用電腦使用。</p>
    <label>GitHub token</label><input id="tk" type="password" placeholder="github_pat_..." autocomplete="off">
+   <label style="display:flex;gap:8px;align-items:center;color:var(--ink)"><input id="rm" type="checkbox" style="width:auto">記住這台裝置（只有自己的私人裝置才勾選）</label>
    <div class="btns"><button class="b main" id="go">連線</button></div></div>`;
   $("go").onclick=async()=>{token=$("tk").value.trim();if(!token)return;
-    try{await readList();localStorage.setItem("gh_admin_token",token);start()}
+    try{await readList();saveTok(token,$("rm").checked);start()}
     catch(e){token="";toast(e.status===401||e.status===403?"token 無效或權限不足":"連線失敗："+e.message)}};
 }
 async function start(){
   $("out").style.display="";$("app").innerHTML='<p class="hint">載入中…</p>';
-  try{data=(await readList()).data;render()}
-  catch(e){if(e.status===401||e.status===403){localStorage.removeItem("gh_admin_token");token="";login();toast("token 已失效，請重新貼上")}else $("app").innerHTML='<p>載入失敗：'+esc(e.message)+'</p>'}
+  try{data=(await readList()).data;ls(()=>localStorage.setItem("is_owner","1"));render()}
+  catch(e){if(e.status===401||e.status===403){clearTok();login();toast("token 已失效，請重新貼上")}else $("app").innerHTML='<p>載入失敗：'+esc(e.message)+'</p>'}
 }
 function render(){
-  const n=data.filter(l=>l.status==="上架").length,w=data.filter(l=>l.status==="待確認").length,d=data.length-n-w;
+  const L=data.filter(l=>l&&okId(l.id)),bad=data.length-L.length;
+  const n=L.filter(l=>l.status==="上架").length,w=L.filter(l=>l.status==="待確認").length,d=L.length-n-w;
   const rank=l=>l.status==="待確認"?0:1;
-  const rows=[...data].sort((x,y)=>rank(x)-rank(y));
-  $("app").innerHTML=`<p class="hint">共 ${data.length} 筆｜待確認 ${w}｜上架 ${n}｜已成交 ${d}。儲存後約 1 分鐘網站更新。</p>`+
+  const rows=[...L].sort((x,y)=>rank(x)-rank(y));
+  $("app").innerHTML=`<p class="hint">共 ${L.length} 筆｜待確認 ${w}｜上架 ${n}｜已成交 ${d}。儲存後約 1 分鐘網站更新。</p>`+
+  (bad?`<div class="box" style="border-left:5px solid var(--red)">有 ${bad} 筆資料編號異常，已隱藏，請檢查 listings.json。</div>`:"")+
   (w?`<div class="box" style="border-left:5px solid #e08a0a">有 ${w} 筆新物件等待確認。請先按「預覽」檢查標題、價格、照片，沒問題再按「確認上架」，確認前訪客看不到。</div>`:"")+
-  (rows.map(l=>{const done=l.status==="已成交",wait=l.status==="待確認",p=(l.photos||[])[0];
+  (rows.map(l=>{const done=l.status==="已成交",wait=l.status==="待確認",p=(Array.isArray(l.photos)?l.photos:[]).find(okImg);
    return `<div class="box"><div class="row"><div class="th" style="${p?`background-image:url('${esc(p)}')`:""}">${p?"":"🏭"}</div>
    <div style="flex:1;min-width:0"><h3>${esc(l.title)}<span class="pill ${done?"done":wait?"wait":""}">${done?"已成交":wait?"待確認":"上架中"}</span></h3>
    <div class="meta">${esc(l.id)}｜出${esc(l.type)}｜${esc(l.area)}</div><div class="price">${esc(l.price)}</div></div></div>
@@ -131,7 +144,7 @@ function remove(id){
     await delPath("img/"+id);await delPath("p/"+id+".html");
   });
 }
-$("out").onclick=()=>{localStorage.removeItem("gh_admin_token");token="";login()};
+$("out").onclick=()=>{clearTok();login()};
 token?start():login();
 </script>
 </body>
