@@ -33,6 +33,11 @@ dialog{border:0;border-radius:10px;padding:18px;width:min(520px,94vw);max-height
 dialog::backdrop{background:rgba(0,0,0,.45)}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:6px;font-size:14px;display:none;z-index:9;max-width:90vw}
 .hint{color:var(--mute);font-size:13px}
+.pg{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:10px 0}
+.pg>div{border:1px solid var(--line);border-radius:6px;padding:6px;text-align:center;font-size:12px;position:relative}
+.pg img{width:100%;height:80px;object-fit:cover;border-radius:4px;display:block;margin-bottom:5px;background:#cfd5d9}
+.pg button{font-size:12px;padding:3px 8px;margin:1px}
+.cv{position:absolute;left:10px;top:10px;background:var(--red);color:#fff;border-radius:3px;padding:0 6px;font-size:11px}
 </style>
 </head>
 <body>
@@ -112,7 +117,7 @@ function render(){
    <div style="flex:1;min-width:0"><h3>${esc(l.title)}<span class="pill ${done?"done":wait?"wait":""}">${done?"已成交":wait?"待確認":"上架中"}</span></h3>
    <div class="meta">${esc(l.id)}｜出${esc(l.type)}｜${esc(l.area)}</div><div class="price">${esc(l.price)}</div></div></div>
    <div class="btns"><button class="b main" onclick="toggle('${l.id}')">${wait?"確認上架":done?"重新上架":"標記已成交"}</button>
-   <button class="b" onclick="edit('${l.id}')">編輯</button><a class="b" href="./?id=${l.id}${wait?"&preview=1":""}" target="_blank">${wait?"預覽":"查看"}</a>
+   <button class="b" onclick="edit('${l.id}')">編輯</button><button class="b" onclick="photos('${l.id}')">照片（${(Array.isArray(l.photos)?l.photos:[]).filter(okImg).length}）</button><a class="b" href="./?id=${l.id}${wait?"&preview=1":""}" target="_blank">${wait?"預覽":"查看"}</a>
    <button class="b del" onclick="remove('${l.id}')">刪除</button></div></div>`}).join("")||'<div class="box">目前沒有物件</div>');
 }
 async function run(label,fn){
@@ -135,6 +140,46 @@ function edit(id){
   $("sv").onclick=()=>{const v={};["type","title","price","area","zoning","land_ping","build_ping","note","desc"].forEach(k=>v[k]=$("f_"+k).value.trim());
     $("dlg").close();
     run("儲存",async()=>{data=await mutate(d=>{Object.assign(d.find(x=>x.id===id),v);return d},"edit "+id)})};
+}
+
+const pv={};
+function photos(id){
+  const l=data.find(x=>x.id===id);if(!l)return;
+  const P=(Array.isArray(l.photos)?l.photos:[]).filter(okImg);
+  $("dlg").innerHTML=`<h3 style="margin-top:0">照片管理 ${esc(id)}（${P.length} 張）</h3>
+   <p class="hint">第一張是封面。刪除會連檔案一起刪除，無法復原。新增的照片會自動縮到適合網頁的大小。</p>
+   <div class="pg">${P.map((p,i)=>`<div>${i?"":'<span class="cv">封面</span>'}<img src="${esc(pv[p]||p)}" alt="">
+     ${i?`<button class="b" data-a="cover" data-i="${i}">設為封面</button>`:""}<button class="b del" data-a="del" data-i="${i}">刪除</button></div>`).join("")||'<p class="hint">目前沒有照片</p>'}</div>
+   <label>新增照片（可一次選多張）</label><input id="pf" type="file" accept="image/*" multiple>
+   <div class="btns"><button class="b main" id="pu">上傳</button><button class="b" id="pc">關閉</button></div>`;
+  if(!$("dlg").open)$("dlg").showModal();
+  $("pc").onclick=()=>$("dlg").close();
+  $("dlg").querySelectorAll("[data-a]").forEach(b=>b.onclick=async()=>{
+    const i=+b.dataset.i,p=P[i];
+    if(b.dataset.a==="del"){
+      if(!confirm("確定刪除這張照片？無法復原。"))return;
+      await run("刪除照片",async()=>{data=await mutate(d=>{const x=d.find(y=>y.id===id);x.photos=(x.photos||[]).filter(q=>q!==p);return d},"photo del "+id);await delPath(p)});
+    }else{
+      await run("設為封面",async()=>{data=await mutate(d=>{const x=d.find(y=>y.id===id);x.photos=[p,...(x.photos||[]).filter(q=>q!==p)];return d},"photo cover "+id)});
+    }
+    photos(id);
+  });
+  $("pu").onclick=async()=>{
+    const fs=[...$("pf").files];if(!fs.length)return toast("請先選擇照片");
+    await run("上傳照片（"+fs.length+" 張）",async()=>{
+      const added=[];
+      for(const f of fs){
+        const bm=await createImageBitmap(f),k=Math.min(1,1600/Math.max(bm.width,bm.height));
+        const c=document.createElement("canvas");c.width=Math.round(bm.width*k);c.height=Math.round(bm.height*k);
+        c.getContext("2d").drawImage(bm,0,0,c.width,c.height);
+        const url=c.toDataURL("image/jpeg",0.82),path=`img/${id}/u${Date.now()}${added.length}.jpg`;
+        await gh(path,{method:"PUT",body:JSON.stringify({message:"photo add "+id,content:url.split(",")[1],branch:BR})});
+        pv[path]=url;added.push(path);
+      }
+      data=await mutate(d=>{const x=d.find(y=>y.id===id);x.photos=[...(x.photos||[]),...added];return d},"photo add "+id);
+    });
+    photos(id);
+  };
 }
 function remove(id){
   const l=data.find(x=>x.id===id);
