@@ -102,11 +102,45 @@ def ask_gpt(text, cands):
     return json.loads(r.choices[0].message.content)
 
 
+_D = {
+    "高雄市": "楠梓區 左營區 鼓山區 三民區 鹽埕區 前金區 新興區 苓雅區 前鎮區 旗津區 小港區 鳳山區 大寮區 鳥松區 林園區 仁武區 大樹區 大社區 岡山區 路竹區 橋頭區 梓官區 彌陀區 永安區 燕巢區 田寮區 阿蓮區 茄萣區 湖內區 旗山區 美濃區 內門區 杉林區 甲仙區 六龜區 茂林區 桃源區 那瑪夏區",
+    "屏東縣": "屏東市 潮州鎮 東港鎮 恆春鎮 萬丹鄉 長治鄉 麟洛鄉 九如鄉 里港鄉 鹽埔鄉 高樹鄉 萬巒鄉 內埔鄉 竹田鄉 新埤鄉 枋寮鄉 新園鄉 崁頂鄉 林邊鄉 南州鄉 佳冬鄉 琉球鄉 車城鄉 滿州鄉 枋山鄉 三地門鄉 霧臺鄉 瑪家鄉 泰武鄉 來義鄉 春日鄉 獅子鄉 牡丹鄉",
+    "台南市": "新營區 鹽水區 白河區 柳營區 後壁區 東山區 麻豆區 下營區 六甲區 官田區 大內區 佳里區 學甲區 西港區 七股區 將軍區 北門區 新化區 善化區 新市區 安定區 山上區 玉井區 楠西區 南化區 左鎮區 仁德區 歸仁區 關廟區 龍崎區 永康區 安平區 安南區 中西區",
+}
+DIST = {d: c for c, v in _D.items() for d in v.split()}
+
+
+def norm_area(a):
+    """統一成「縣市＋區/鄉/鎮＋路名」。縣市以區名對照表為準（修正 AI 填錯縣市）；
+    找不到區名就維持原樣，不亂改。"""
+    a = re.sub(r"\s+", "", str(a or "")).replace("臺", "台")
+    a = re.sub(r"[\d０-９].*$", "", a)  # 門牌、地號一律砍掉
+    county = dist = rest = None
+    for d in sorted(DIST, key=len, reverse=True):
+        if d in a:
+            county, dist, rest = DIST[d], d, a[a.rindex(d) + len(d):]
+            break
+    if not dist:
+        m = re.match(r"(.{1,3}[縣市])(.{1,4}?[區鄉鎮市])(.*)$", a)
+        if not m:
+            return a
+        county, dist, rest = m.groups()
+    rest = re.sub(r"^[^路街巷]{1,4}?[村里]", "", rest)  # 村里不顯示
+    m = re.match(r"(.*?(?:大道|路|街))((?:[一二三四五六七八九十]{1,3}段)?)", rest)
+    road = (m.group(1) + m.group(2)) if m else ""
+    if not road:
+        m = re.match(r"(.{1,6}巷)", rest)  # 只有巷名時保留；地段（如大同段）不顯示
+        road = m.group(1) if m else ""
+    if len(road) > 14:
+        road = ""
+    return county + dist + road
+
+
 def clean(d, cands):
     g = lambda k: str(d.get(k, "") or "").strip()
     if g("type") not in ("售", "租"):
         raise ValueError("無法判斷售/租：" + g("type"))
-    area = re.sub(r"[\d０-９].*$", "", g("area"))  # 再保險：砍掉門牌與地號
+    area = norm_area(g("area"))  # 統一成 縣市＋區鄉鎮＋路名
     ids = [k for k in d.get("photo_ids", []) if isinstance(k, int) and 0 <= k < len(cands)]
     ids = list(dict.fromkeys(ids))[:12]
     return {"title": g("title"), "type": g("type"), "price": g("price"),
@@ -270,6 +304,11 @@ def main():
         except Exception as e:
             failed += 1
             print("FAIL", p.name, repr(e))
+    for l in data:  # 統一地址格式（已符合的不會變動）
+        n = norm_area(l.get("area", ""))
+        if n and n != l.get("area"):
+            print("AREA", l["id"], l.get("area"), "->", n)
+            l["area"] = n
     f.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
     if not f.exists() or old_f.exists():
         old_f.unlink(missing_ok=True)
