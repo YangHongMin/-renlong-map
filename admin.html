@@ -52,6 +52,7 @@ const TK="gh_admin_token";
 const ls=(f)=>{try{return f()}catch(e){return null}};
 let token=ls(()=>sessionStorage.getItem(TK))||ls(()=>localStorage.getItem(TK))||"",data=[],busy=false;
 const $=id=>document.getElementById(id);
+const CATS=["大型廠房","小型廠房","土地","其他"];
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const okId=s=>typeof s==="string"&&/^[A-Za-z0-9_-]{1,40}$/.test(s);
 const okImg=s=>typeof s==="string"&&/^img\/[A-Za-z0-9_\-\/.]+$/.test(s)&&!s.includes("..");
@@ -70,12 +71,12 @@ async function gh(path,opt={}){
   if(!r.ok){const e=new Error("HTTP "+r.status);e.status=r.status;throw e}
   return r.json();
 }
-async function readList(){const f=await gh("listings.json");return{sha:f.sha,data:JSON.parse(b64d(f.content))}}
+async function readList(){const f=await gh("data/listings.json");return{sha:f.sha,data:JSON.parse(b64d(f.content))}}
 async function mutate(fn,msg){
   for(let i=0;i<3;i++){
     const {sha,data:d}=await readList();const out=fn(d);
     try{
-      await gh("listings.json",{method:"PUT",body:JSON.stringify({message:msg,content:b64e(JSON.stringify(out,null,2)),sha,branch:BR})});
+      await gh("data/listings.json",{method:"PUT",body:JSON.stringify({message:msg,content:b64e(JSON.stringify(out,null,2)),sha,branch:BR})});
       return out;
     }catch(e){if((e.status!==409&&e.status!==422)||i===2)throw e}
   }
@@ -115,7 +116,7 @@ function render(){
   (rows.map(l=>{const done=l.status==="已成交",wait=l.status==="待確認",p=(Array.isArray(l.photos)?l.photos:[]).find(okImg);
    return `<div class="box"><div class="row"><div class="th" style="${p?`background-image:url('${esc(p)}')`:""}">${p?"":"🏭"}</div>
    <div style="flex:1;min-width:0"><h3>${esc(l.title)}<span class="pill ${done?"done":wait?"wait":""}">${done?"已成交":wait?"待確認":"上架中"}</span></h3>
-   <div class="meta">${esc(l.id)}｜出${esc(l.type)}｜${esc(l.area)}</div><div class="price">${esc(l.price)}</div></div></div>
+   <div class="meta">${esc(l.id)}｜出${esc(l.type)}｜${esc(l.category||"自動分類")}｜${esc(l.area)}</div><div class="price">${esc(l.price)}</div></div></div>
    <div class="btns"><button class="b main" onclick="toggle('${l.id}')">${wait?"確認上架":done?"重新上架":"標記已成交"}</button>
    <button class="b" onclick="edit('${l.id}')">編輯</button><button class="b" onclick="photos('${l.id}')">照片（${(Array.isArray(l.photos)?l.photos:[]).filter(okImg).length}）</button><a class="b" href="./?id=${l.id}${wait?"&preview=1":""}" target="_blank">${wait?"預覽":"查看"}</a>
    <button class="b del" onclick="remove('${l.id}')">刪除</button></div></div>`}).join("")||'<div class="box">目前沒有物件</div>');
@@ -132,12 +133,13 @@ function edit(id){
   const l=data.find(x=>x.id===id);
   const f=(k,lab,tag)=>`<label>${lab}</label>${tag==="ta"?`<textarea id="f_${k}" rows="3">${esc(l[k])}</textarea>`:`<input id="f_${k}" value="${esc(l[k])}">`}`;
   $("dlg").innerHTML=`<h3 style="margin-top:0">編輯 ${esc(id)}</h3>
+   <label>分類</label><select id="f_category">${CATS.map(c=>`<option ${l.category===c?"selected":""}>${c}</option>`).join("")}<option value="" ${CATS.includes(l.category)?"":"selected"}>（自動判斷）</option></select>
    <label>售 / 租</label><select id="f_type"><option ${l.type==="售"?"selected":""}>售</option><option ${l.type==="租"?"selected":""}>租</option></select>
    ${f("title","標題")}${f("price","價格")}${f("area","地址（只到路名）")}${f("zoning","使用分區")}
    ${f("land_ping","土地坪數")}${f("build_ping","建物坪數")}${f("note","備註","ta")}${f("desc","特色（用「；」分隔）","ta")}
    <div class="btns"><button class="b main" id="sv">儲存</button><button class="b" onclick="$('dlg').close()">取消</button></div>`;
   $("dlg").showModal();
-  $("sv").onclick=()=>{const v={};["type","title","price","area","zoning","land_ping","build_ping","note","desc"].forEach(k=>v[k]=$("f_"+k).value.trim());
+  $("sv").onclick=()=>{const v={};["category","type","title","price","area","zoning","land_ping","build_ping","note","desc"].forEach(k=>v[k]=$("f_"+k).value.trim());
     $("dlg").close();
     run("儲存",async()=>{data=await mutate(d=>{Object.assign(d.find(x=>x.id===id),v);return d},"edit "+id)})};
 }
