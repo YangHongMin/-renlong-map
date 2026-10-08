@@ -9,6 +9,8 @@ MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 # 含這些字的投影片（謄本、使用執照等）完全不處理：文字不送 AI、圖片不公開
 SENSITIVE = ["使用執照", "謄本", "測量成果", "登記簿", "所有權狀", "身分證", "契約"]
 MAX_CAND = 30
+CATS = ["大型廠房", "小型廠房", "土地", "其他"]
+DATA = ROOT / "data" / "listings.json"
 
 PROMPT = """你是工業不動產物件資料整理員。以下是一份物件簡報的文字（已排除謄本、使用執照等頁面）與候選圖片。
 請只輸出 JSON，欄位如下：
@@ -19,6 +21,7 @@ land_ping：土地坪數，只填數字字串；沒有則 ""
 build_ping：建物坪數，只填數字字串；沒有則 ""
 zoning：使用分區，如 "乙種工業區"、"丁種建築用地"、"住四(50%/300%)"
 area：公開地址，只到「縣市＋區/鄉/鎮＋路/街/巷」，縣市必須依原文地址填寫（可能是屏東縣、台南市等，不要預設高雄），不得含門牌號碼、巷弄號、地號、段號
+category："大型廠房"（廠房/廠辦/倉庫，建坪約500坪以上）、"小型廠房"（建坪500坪以下的廠房/倉庫）、"土地"（無建物的土地）、"其他"（住宅、店面、辦公、車位等非廠房）擇一
 note：公開備註（面寬、深度、路寬、樓高、電力、天車、載重、完工日、結構、是否帶租約等客觀資料，用「、」分隔），沒有則 ""
 desc：投資亮點／訴求重點，每點一句，用「；」分隔
 photo_ids：候選圖片中屬於「實景照片」的編號（整數陣列），依適合展示的順序排列（外觀、空拍優先），最多 12 個
@@ -108,7 +111,8 @@ def clean(d, cands):
     ids = list(dict.fromkeys(ids))[:12]
     return {"title": g("title"), "type": g("type"), "price": g("price"),
             "land_ping": g("land_ping"), "build_ping": g("build_ping"),
-            "zoning": g("zoning"), "area": area, "note": g("note"), "desc": g("desc")}, ids
+            "zoning": g("zoning"), "area": area,
+            "category": g("category") if g("category") in CATS else "", "note": g("note"), "desc": g("desc")}, ids
 
 
 def save_photos(pid, cands, ids):
@@ -125,45 +129,120 @@ def save_photos(pid, cands, ids):
     return paths
 
 
+def cat_of(l):
+    if l.get("category") in CATS:
+        return l["category"]
+    num = lambda k: float(re.sub(r"[^\d.]", "", str(l.get(k, ""))) or 0)
+    b, d = num("build_ping"), num("land_ping")
+    if not b:
+        return "土地" if d else "其他"
+    if not re.search("廠|倉|工業|丁種|乙種|甲種", l.get("title", "") + l.get("zoning", "")):
+        return "其他"
+    return "大型廠房" if b >= 500 else "小型廠房"
+
+
+def jdump(o):
+    return json.dumps(o, ensure_ascii=False).replace("</", "<\\/")
+
+
+def page_html(l):
+    E = html.escape
+    ph = [p for p in (l.get("photos") or []) if re.fullmatch(r"img/[\w\-/.]+", str(p)) and ".." not in p]
+    t = l["title"] + "｜富住通大型工業地產"
+    meta = [l.get("price", ""), l.get("area", ""), l.get("zoning", "")]
+    if l.get("land_ping"): meta.append(f"土地{l['land_ping']}坪")
+    if l.get("build_ping"): meta.append(f"建坪{l['build_ping']}坪")
+    desc = "｜".join(x for x in meta if x) + "｜洽楊紘珉 0905-858-141"
+    url = f"{SITE}/p/{l['id']}.html"
+    m = re.search(r"[市縣](.+?[區鄉鎮市])", l.get("area", ""))
+    ld = {"@context": "https://schema.org", "@type": "RealEstateListing", "name": t, "url": url,
+          "description": desc + ("。" + l["desc"].replace("；", "，") if l.get("desc") else ""),
+          "image": [f"{SITE}/{p}" for p in ph[:6]],
+          "about": {"@type": "Place", "name": l.get("area", ""),
+                    "address": {"@type": "PostalAddress", "addressCountry": "TW",
+                                "addressLocality": m.group(1) if m else "", "streetAddress": l.get("area", "")}},
+          "category": cat_of(l) + ("出租" if l.get("type") == "租" else "出售"),
+          "provider": {"@type": "RealEstateAgent", "name": "富住通商用不動產 新興店 楊紘珉",
+                       "telephone": "+886-905-858-141", "url": SITE}}
+    rows = [("類別", cat_of(l)), ("編號", l["id"]), ("區域", l.get("area", "")), ("價格", l.get("price", "")),
+            ("使用分區", l.get("zoning", "")), ("土地坪數", l.get("land_ping", "")),
+            ("建物坪數", l.get("build_ping", "")), ("備註", l.get("note", ""))]
+    tr = "".join(f"<tr><th>{E(k)}</th><td>{E(str(v))}</td></tr>" for k, v in rows if v)
+    pts = "".join(f"<li>{E(x)}</li>" for x in (l.get("desc") or "").split("；") if x)
+    imgs = "".join(f'<img src="../{E(p)}" alt="{E(l["title"])}" width="400" loading="lazy">' for p in ph[:4])
+    og = E(f"{SITE}/{ph[0]}") if ph else ""
+    return f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{E(t)}</title>
+<meta name="description" content="{E(desc)}">
+<link rel="canonical" href="{url}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{E(t)}">
+<meta property="og:description" content="{E(desc)}">
+<meta property="og:image" content="{og}">
+<meta property="og:url" content="{url}">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{jdump(ld)}</script>
+<script>location.replace("../?id={l['id']}")</script>
+</head><body>
+<h1>{E(l['title'])}</h1>
+<p>{imgs}</p>
+<table>{tr}</table>
+<ul>{pts}</ul>
+<p>洽詢：楊紘珉（富住通商用不動產 新興店）0905-858-141｜<a href="https://lin.ee/S6hfHqge">LINE 諮詢</a></p>
+<p><a href="../?id={l['id']}">查看完整物件頁</a>｜<a href="../all.html">全部物件清單</a></p>
+</body></html>
+"""
+
+
 def write_share_pages(data):
     pdir = ROOT / "p"
     pdir.mkdir(exist_ok=True)
+    pub = [l for l in data
+           if l.get("status") != "待確認" and re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(l.get("id", "")))]
     live = set()
-    for l in data:
-        # 待確認的物件不產生分享頁（避免標題、價格、照片外洩）
-        if l.get("status") == "待確認" or not re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(l.get("id", ""))):
-            continue
+    for l in pub:
         live.add(f"{l['id']}.html")
-        ph = l.get("photos") or []
-        ph0 = ph[0] if ph and re.fullmatch(r"img/[\w\-/.]+", str(ph[0])) and ".." not in ph[0] else ""
-        img = html.escape(f"{SITE}/{ph0}") if ph0 else ""
-        t = html.escape(l["title"] + "｜富住通大型工業地產")
-        meta = [l["price"], l["area"], l["zoning"]]
-        if l.get("land_ping"): meta.append(f"土地{l['land_ping']}坪")
-        if l.get("build_ping"): meta.append(f"建坪{l['build_ping']}坪")
-        d = html.escape("｜".join(x for x in meta if x) + "｜洽楊紘珉 0905-858-141")
-        (pdir / f"{l['id']}.html").write_text(f"""<!DOCTYPE html>
-<html lang="zh-Hant"><head><meta charset="utf-8">
-<title>{t}</title>
-<meta property="og:type" content="website">
-<meta property="og:title" content="{t}">
-<meta property="og:description" content="{d}">
-<meta property="og:image" content="{img}">
-<meta property="og:url" content="{SITE}/p/{l['id']}.html">
-<meta name="twitter:card" content="summary_large_image">
-<script>location.replace("../?id={l['id']}")</script>
-</head><body><a href="../?id={l['id']}">查看物件：{t}</a></body></html>
-""", "utf-8")
+        (pdir / f"{l['id']}.html").write_text(page_html(l), "utf-8")
     # 清掉不再公開的舊分享頁；資料為空時不動（防止 listings.json 被清空時誤刪）
     if data:
         for f in pdir.glob("*.html"):
             if f.name not in live:
                 f.unlink()
+        write_site_files(pub)
+
+
+def write_site_files(pub):
+    E = html.escape
+    live = [l for l in pub if l.get("status") == "上架"]
+    sec = ""
+    for c in CATS:
+        items = [l for l in live if cat_of(l) == c]
+        if items:
+            sec += f"<h2>{c}</h2><ul>" + "".join(
+                f'<li><a href="p/{l["id"]}.html">{E(l["title"])}</a>｜{E(l.get("area",""))}｜{E(l.get("price",""))}</li>'
+                for l in items) + "</ul>"
+    (ROOT / "all.html").write_text(f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>高雄工業廠房・工業用地出售出租物件總覽｜富住通</title>
+<meta name="description" content="富住通商用不動產 新興店 楊紘珉，高雄、仁武、大寮、岡山等地工業廠房與工業用地出售、出租物件清單。">
+<link rel="canonical" href="{SITE}/all.html">
+</head><body><h1>工業廠房・工業用地物件總覽</h1>{sec or "<p>目前沒有上架物件</p>"}
+<p><a href="./">回首頁</a>｜洽詢：楊紘珉 0905-858-141｜<a href="https://lin.ee/S6hfHqge">LINE 諮詢</a></p></body></html>
+""", "utf-8")
+    urls = [f"{SITE}/", f"{SITE}/all.html"] + [f"{SITE}/p/{l['id']}.html" for l in live]
+    (ROOT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "".join(f"<url><loc>{E(u)}</loc></url>\n" for u in urls) + "</urlset>\n", "utf-8")
+    (ROOT / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /admin.html\n\nSitemap: {SITE}/sitemap.xml\n", "utf-8")
 
 
 def main():
-    f = ROOT / "listings.json"
-    data = json.loads(f.read_text("utf-8")) if f.exists() else []
+    old_f = ROOT / "listings.json"  # 舊位置：搬遷前相容
+    f = DATA
+    f.parent.mkdir(exist_ok=True)
+    src_f = f if f.exists() else old_f
+    data = json.loads(src_f.read_text("utf-8")) if src_f.exists() else []
     data = [l for l in data if not l["title"].startswith("【範例】")]
     failed = 0
     for p in sorted((ROOT / "pptx").glob("*")):
@@ -192,6 +271,8 @@ def main():
             failed += 1
             print("FAIL", p.name, repr(e))
     f.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
+    if not f.exists() or old_f.exists():
+        old_f.unlink(missing_ok=True)
     write_share_pages(data)
     if failed:
         sys.exit(1)
