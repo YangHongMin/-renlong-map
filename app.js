@@ -60,7 +60,7 @@ function needGo(){
   ev("need_form_submit",{need_type:t},"NeedForm",{need_type:t}); // 只送需求類別，不送內容
 }
 function toNeed(e){e.preventDefault();history.pushState({},"","./#need");route()}
-fetch("data/listings.json").then(r=>r.json()).then(d=>{all=sanitize(d);route()}).catch(()=>{$.textContent="資料載入失敗，請稍後再試。"});
+fetch("data/listings.json?v="+Math.floor(Date.now()/60000)).then(r=>r.json()).then(d=>{all=sanitize(d);route()}).catch(()=>{$.textContent="資料載入失敗，請稍後再試。"});
 window.addEventListener("popstate",route);
 function route(){const q=new URLSearchParams(location.search),id=q.get("id"),pv=q.get("preview")==="1";const l=all.find(x=>x.id===id&&(x.status!=="待確認"||pv));l?detail(l):list();pageview(l)}
 function go(e,id){e.preventDefault();history.pushState({},"","?id="+id);route();scrollTo(0,0)}
