@@ -20,6 +20,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install python-pptx pillow openai
+      - run: sudo apt-get install -y -q fonts-noto-cjk >/dev/null
       - run: python scripts/build.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

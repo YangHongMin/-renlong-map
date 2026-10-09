@@ -591,27 +591,107 @@ def article_html(a, path, pages):
 """
 
 
+FONT_CANDIDATES = ["/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+                   "/usr/share/fonts/opentype/noto/NotoSansCJK-Black.ttc"]
+
+
+def _font(size, bold=True):
+    from PIL import ImageFont
+    for f in FONT_CANDIDATES if bold else [f.replace("Bold", "Regular") for f in FONT_CANDIDATES]:
+        if os.path.exists(f):
+            return ImageFont.truetype(f, size, index=3)  # index 3 = 繁體中文（TC）
+    raise RuntimeError("找不到中文字型（GitHub Actions 需安裝 fonts-noto-cjk）")
+
+
+def _wrap(draw, text, font, width):
+    lines, cur = [], ""
+    for ch in text:
+        if draw.textlength(cur + ch, font=font) > width and cur:
+            lines.append(cur)
+            cur = ch.lstrip()
+        else:
+            cur += ch
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def render_card(a, path):
+    """IG 用 1080x1350 圖卡：深藍底、標題、最多三個重點、署名與 LINE。"""
+    from PIL import ImageDraw
+    W, H, M = 1080, 1350, 90
+    navy, red, white, soft = (30, 58, 138), (200, 48, 42), (255, 255, 255), (214, 222, 240)
+    im = Image.new("RGB", (W, H), navy)
+    d = ImageDraw.Draw(im)
+    d.rectangle([0, 0, W, 18], fill=red)
+    strip = lambda t: re.sub(r"[\U00010000-\U0010FFFF☀-➿️]", "", t).strip()
+    d.text((M, 120), "廠房知識＋", font=_font(40), fill=(255, 196, 120))
+    y = 200
+    tf = _font(76)
+    title = strip(a["_title"]).rstrip("。")
+    for ln in _wrap(d, title, tf, W - 2 * M)[:4]:
+        d.text((M, y), ln, font=tf, fill=white)
+        y += 104
+    d.rectangle([M, y + 20, M + 120, y + 28], fill=red)
+    y += 80
+    pts = [strip(re.sub(r"^[✔✅▪•・\-]\s*", "", x)) for b in a["_blocks"] for x in b if re.match(r"^[✔✅▪•・\-]", x)]
+    if not pts:  # 沒有條列就用第一段
+        pts = [strip(" ".join(a["_blocks"][0]))] if a["_blocks"] else []
+    pts = [t for t in pts if t and t.rstrip("。") != title and "你會怎麼看" not in t]
+    bf = _font(42, bold=False)
+    for t in pts[:3]:
+        lines = _wrap(d, t, bf, W - 2 * M - 50)[:3]
+        if y + 60 * len(lines) > H - 260:
+            break
+        d.ellipse([M, y + 18, M + 16, y + 34], fill=(255, 196, 120))
+        for ln in lines:
+            d.text((M + 50, y), ln, font=bf, fill=soft)
+            y += 60
+        y += 30
+    d.rectangle([0, H - 200, W, H], fill=(22, 44, 108))
+    try:
+        logo = Image.open(ROOT / "logo.png").convert("RGBA")
+        logo.thumbnail((620, 70))
+        im.paste(logo, (M, H - 165), logo)
+    except Exception:
+        d.text((M, H - 165), "富住通商用不動產", font=_font(48), fill=white)
+    d.text((M, H - 80), "楊紘珉｜LINE 官方帳號 @447lrpzt", font=_font(34, bold=False), fill=soft)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    im.save(path, "JPEG", quality=88, optimize=True)
+
+
 def write_articles(pages):
     ARTICLES.clear()
     out = ROOT / "a"
-    posts = []
+    posts, cards = [], set()
     for f in sorted(POSTS.glob("*.json")) if POSTS.exists() else []:
         try:
             a = json.loads(f.read_text("utf-8"))
         except Exception as e:
             print("POST FAIL", f.name, repr(e))
             continue
-        if a.get("source") == "template" or a.get("hidden"):
-            continue  # 範本後備的短文不放網站（內容太薄）
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(a.get("date", ""))):
             continue
         head, blocks, news = clean_caption(a.get("caption", ""))
-        if sum(len("".join(b)) for b in blocks) < 80:
-            continue
         a["_title"] = head if head and head not in GENERIC_HEAD else (a.get("topicTitle") or head)
         a["_blocks"], a["_news"] = blocks, news
         slug = re.sub(r"[^a-z0-9-]", "", f"{a['date']}-{str(a.get('topicId', '')).lower()}").strip("-")
+        cards.add(slug)
+        card = ROOT / "a" / "img" / f"{slug}.jpg"
+        if not card.exists():  # IG 用圖卡（範本後備的貼文也要有）
+            try:
+                render_card(a, card)
+            except Exception as e:
+                print("CARD FAIL", slug, repr(e))
+        if a.get("source") == "template" or a.get("hidden"):
+            continue  # 範本後備的短文不放網站（內容太薄）
+        if sum(len("".join(b)) for b in blocks) < 80:
+            continue
         posts.append((f"a/{slug}.html", a))
+    if (ROOT / "a" / "img").exists():
+        for f in (ROOT / "a" / "img").glob("*.jpg"):
+            if f.stem not in cards:
+                f.unlink()
     keep = set()
     if posts:
         out.mkdir(exist_ok=True)
