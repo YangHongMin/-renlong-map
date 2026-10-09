@@ -11,6 +11,9 @@ SENSITIVE = ["使用執照", "謄本", "測量成果", "登記簿", "所有權�
 MAX_CAND = 30
 CATS = ["大型廠房", "小型廠房", "土地", "其他"]
 DATA = ROOT / "data" / "listings.json"
+# 樣式表版本號：style.css 改了就換，避免瀏覽器用舊快取
+CSS_V = hashlib.md5((ROOT / "style.css").read_bytes()).hexdigest()[:8] if (ROOT / "style.css").exists() else "1"
+JS_V = hashlib.md5((ROOT / "app.js").read_bytes()).hexdigest()[:8] if (ROOT / "app.js").exists() else "1"
 
 PROMPT = """你是工業不動產物件資料整理員。以下是一份物件簡報的文字（已排除謄本、使用執照等頁面）與候選圖片。
 請只輸出 JSON，欄位如下：
@@ -448,7 +451,7 @@ def landing_html(pg, pages):
 <meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
 {f'<meta property="og:image" content="{SITE}/{E(items[0]["photos"][0])}">' if items[0].get("photos") else ""}
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../style.css?v={CSS_V}">
 <script type="application/ld+json">{jdump(ld)}</script>
 {TRACK}
 </head><body>
@@ -511,6 +514,8 @@ def update_index(pages):
     """首頁頁尾（靜態 HTML，搜尋引擎看得到）放專頁連結。"""
     f = ROOT / "index.html"
     s = f.read_text("utf-8")
+    s = re.sub(r'href="style\.css(\?v=\w+)?"', f'href="style.css?v={CSS_V}"', s)
+    s = re.sub(r'src="app\.js(\?v=\w+)?"', f'src="app.js?v={JS_V}"', s)
     block = f"<!--BROWSE-->{browse_links(pages)}<!--/BROWSE-->"
     if "<!--BROWSE-->" in s:
         s = re.sub(r"<!--BROWSE-->.*?<!--/BROWSE-->", lambda _: block, s, flags=re.S)
@@ -594,7 +599,7 @@ def article_html(a, path, pages):
 <meta property="og:type" content="article"><meta property="og:title" content="{E(title)}">
 <meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../style.css?v={CSS_V}">
 <script type="application/ld+json">{jdump(ld)}</script>
 {TRACK}
 </head><body>
@@ -737,7 +742,7 @@ def write_articles(pages):
 <meta name="description" content="高雄工業不動產顧問楊紘珉整理的廠房、工業用地買賣租賃實務：選址、電力、消防、使用分區與產業投資觀察。">
 <link rel="canonical" href="{SITE}/a/">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../style.css?v={CSS_V}">
 {TRACK}
 </head><body>
 {HEAD_NAV}
@@ -832,7 +837,7 @@ def price_page_html(dist, deals, upd, pages, listings):
 <link rel="canonical" href="{url}">
 <meta property="og:type" content="website"><meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../style.css?v={CSS_V}">
 <script type="application/ld+json">{jdump(ld)}</script>
 {TRACK}
 </head><body>
@@ -1025,7 +1030,7 @@ def write_price_pages(pages, live):
 <meta name="description" content="高雄各區工業區、丁種建築用地、廠房的實價登錄成交行情，依地區整理地坪單價中位數與近期成交。資料來源內政部實價登錄，{E(upd)} 更新。">
 <link rel="canonical" href="{SITE}/price/">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="../style.css?v={CSS_V}">
 {TRACK}
 </head><body>
 {HEAD_NAV}
