@@ -142,7 +142,7 @@ def main():
         print("沒有下載到任何資料，保留舊檔")
         sys.exit(0)
     cutoff = (datetime.date.today() - datetime.timedelta(days=365 * 3)).isoformat()
-    deals = sorted((d for d in found.values() if d["date"] >= cutoff), key=lambda d: d["date"], reverse=True)
+    deals = sorted((d for d in found.values() if d["date"] >= cutoff), key=lambda d: (d["date"], d["id"]), reverse=True)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps({"updated": datetime.date.today().isoformat(),
                                "source": "內政部不動產成交案件實際資訊（實價登錄）開放資料",
