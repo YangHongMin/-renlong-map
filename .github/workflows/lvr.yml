@@ -1,0 +1,30 @@
+name: update-lvr
+on:
+  schedule:
+    - cron: "0 3 2,12,22 * *"   # 每月 2、12、22 日 11:00（台灣），實價登錄 1、11、21 日發布
+  workflow_dispatch:
+  push:
+    branches: [lvr-explore]
+concurrency:
+  group: build-listings
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/lvr.py
+      - run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data/lvr
+          if ! git diff --cached --quiet; then
+            git commit -m "auto: update 實價登錄"
+            git pull --rebase
+            git push
+          fi
