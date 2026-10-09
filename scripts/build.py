@@ -770,6 +770,12 @@ def _zone(z):
     return {'工': '工業區', '農': '農業區', '': '—'}.get(z, z)
 
 
+def _bunit(d):
+    """建坪單價＝總價÷建物坪數（含土地價值）；純土地或建坪太小時不顯示"""
+    b = d.get("build_ping") or 0
+    return f"{d['total_wan'] / b:.1f}".rstrip("0").rstrip(".") if d["kind"] != "土地" and b >= 5 else "—"
+
+
 def _bp(d):
     return f"{d['build_ping']:,.0f}" if d.get('build_ping') else '—'
 
@@ -809,7 +815,7 @@ def price_page_html(dist, deals, upd, pages, listings):
         f"<tr><td>{E(d['date'][:7])}</td><td>{E(d['road'] or '—')}</td><td>{'土地' if d['kind'] == '土地' else '房地'}</td>"
         f"<td>{E(_zone(d['zone']))}</td><td>{d['land_ping']:,.0f}</td>"
         f"<td>{_bp(d)}</td>"
-        f"<td>{E(_wan(d['total_wan']))}</td><td><b>{_deal_unit(d):g}</b></td></tr>"
+        f"<td>{E(_wan(d['total_wan']))}</td><td><b>{_deal_unit(d):g}</b></td><td>{_bunit(d)}</td></tr>"
         for d in ok[:40])
     area = next((p for p in pages if p["kind"] == "area" and p["place"].endswith(dist)), None)
     mine = [l for l in listings if loc(l)[1] == dist]
@@ -846,12 +852,12 @@ def price_page_html(dist, deals, upd, pages, listings):
 <a class="back" href="./">← 高雄工業地產實價行情</a>
 <h1>{E(title)}</h1>
 <div class="stats"><div><span>近一年成交</span><b>{n} 筆</b></div><div><span>土地 地坪單價中位數</span><b>{E(_stat_text(lm, ln))}</b></div><div><span>廠房（房地） 地坪單價中位數</span><b>{E(_stat_text(bm, bn))}</b></div></div>
-<p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數（房地含建物價值），單位：萬元。已排除政府標售、親友等特殊交易 {sp} 筆。位置只顯示到路名，土地交易不顯示位置。</p>
+<p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數，建坪單價＝總價÷建物坪數（兩者都含土地與建物價值，廠房小、土地大時建坪單價會偏高），單位：萬元。已排除政府標售、親友等特殊交易 {sp} 筆。位置只顯示到路名，土地交易不顯示位置。</p>
 {mine_html}
 {trend_svg(deals)}
 {scatter_svg(deals)}
 <h2>近期成交明細</h2>
-<div class="tbl"><table class="deals"><thead><tr><th>年月</th><th>位置</th><th>標的</th><th>分區</th><th>土地坪</th><th>建坪</th><th>總價</th><th>地坪單價</th></tr></thead><tbody>{rows}</tbody></table></div>
+<div class="tbl"><table class="deals"><thead><tr><th>年月</th><th>位置</th><th>標的</th><th>分區</th><th>土地坪</th><th>建坪</th><th>總價</th><th>地坪單價</th><th>建坪單價</th></tr></thead><tbody>{rows}</tbody></table></div>
 <div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>實價登錄只看得到成交價，看不到屋況、面寬、電力和路寬。加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
 {f'<h2>其他地區實價行情</h2><p>{others}</p>' if others else ""}
