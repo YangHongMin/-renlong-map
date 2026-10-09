@@ -971,7 +971,7 @@ Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){r
  var geo=a[0],M=a[1],vals=Object.keys(M).map(function(k){return M[k].all}).filter(function(v){return v}).sort(function(x,y){return x-y});
  var br=[1,2,3,4].map(function(i){return vals[Math.floor(vals.length*i/5)]});
  function col(v){if(!v)return NODATA;for(var i=0;i<4;i++)if(v<br[i])return RAMP[i];return RAMP[4]}
- var map=L.map("pmap",{scrollWheelZoom:false,attributionControl:true});
+ var map=L.map("pmap",{scrollWheelZoom:false,attributionControl:true,zoomSnap:0.25});
  L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}",{maxZoom:17,opacity:.55,attribution:'底圖：<a href="https://maps.nlsc.gov.tw/" target="_blank" rel="noopener">內政部國土測繪中心</a>｜行政區界：內政部'}).addTo(map);
  var focus=[];
  var lay=L.geoJSON(geo,{style:function(f){var d=M[f.properties.name]||{};return {color:"#ffffff",weight:1.5,fillColor:col(d.all),fillOpacity:d.all?.78:.45}},
@@ -985,7 +985,7 @@ Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){r
    l.on("mouseover",function(){l.setStyle({weight:3,color:"#1e3a8a"})});l.on("mouseout",function(){lay.resetStyle(l)});
    if(d.mine&&d.mine.length){var c=l.getBounds().getCenter();L.marker(c,{icon:L.divIcon({className:"mine",html:"🏭<b>"+d.mine.length+"</b>",iconSize:[38,22]})}).addTo(map).bindPopup(h)}
   }}).addTo(map);
- var fb=L.featureGroup(focus.length?focus:[lay]).getBounds();map.fitBounds(fb,{padding:[6,6]});if(map.getZoom()<10)map.setView(fb.getCenter(),10);
+ var fb=L.featureGroup(focus.length?focus:[lay]).getBounds();map.fitBounds(fb,{padding:[6,6]});
  var lg="";var lo=[vals[0]].concat(br);for(var i=0;i<5;i++){lg+='<span><i style="background:'+RAMP[i]+'"></i>'+(i<4?Math.round(lo[i])+"–"+Math.round(br[i]):Math.round(br[3])+"+")+"</span>"}
  lg+='<span><i style="background:'+NODATA+'"></i>筆數不足</span>';document.getElementById("pleg").innerHTML="萬／地坪："+lg;
 }).catch(function(){document.getElementById("pmap").style.display="none"});
