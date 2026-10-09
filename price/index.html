@@ -23,6 +23,39 @@ window.ev=function(n){try{gtag("event",n,{page:location.pathname});fbq("track","
 </header>
 <main><h1>高雄工業地產實價登錄行情</h1>
 <p>整理高雄各區工業區、丁種建築用地與廠房的實價登錄成交，每 10 天自動更新。點地區看近期每一筆成交。</p>
+<div class="mapwrap"><div id="pmap" role="img" aria-label="高雄各區工業地地坪單價地圖"></div><div class="maplegend" id="pleg"></div></div>
+<p class="meta">顏色越深＝近一年工業地・廠房地坪單價中位數越高（萬／地坪）；灰色＝成交少於 3 筆。🏭＝目前有我的物件。點地區看詳細。</p>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+var RAMP=["#b7d3f6","#86b6ef","#3987e5","#1c5cab","#0d366b"],NODATA="#e5e4df";
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){return r.json()}),fetch("../data/lvr/map.json").then(function(r){return r.json()})]).then(function(a){
+ var geo=a[0],M=a[1],vals=Object.keys(M).map(function(k){return M[k].all}).filter(function(v){return v}).sort(function(x,y){return x-y});
+ var br=[1,2,3,4].map(function(i){return vals[Math.floor(vals.length*i/5)]});
+ function col(v){if(!v)return NODATA;for(var i=0;i<4;i++)if(v<br[i])return RAMP[i];return RAMP[4]}
+ var map=L.map("pmap",{scrollWheelZoom:false,attributionControl:true});
+ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:16,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>｜行政區界：內政部'}).addTo(map);
+ var focus=[];
+ var lay=L.geoJSON(geo,{style:function(f){var d=M[f.properties.name]||{};return {color:"#ffffff",weight:1.5,fillColor:col(d.all),fillOpacity:d.all?.78:.45}},
+  onEachFeature:function(f,l){var k=f.properties.name,d=M[k]||{};if(d.n||(d.mine&&d.mine.length))focus.push(l);
+   var h="<b>"+esc(k)+"</b><br>近一年成交："+(d.n||0)+" 筆";
+   if(d.all)h+="<br>地坪單價中位數：<b>"+d.all+" 萬</b>";
+   if(d.land)h+="<br>土地："+d.land+" 萬（"+d.ln+" 筆）";if(d.bld)h+="<br>廠房（房地）："+d.bld+" 萬（"+d.bn+" 筆）";
+   if(d.page)h+='<br><a href="../'+esc(d.page)+'">看'+esc(k)+'每一筆成交 →</a>';
+   if(d.mine&&d.mine.length)h+="<br>🏭 我的物件："+d.mine.map(function(x){return '<a href="../p/'+esc(x.id)+'.html">'+esc(x.t)+"</a>"}).join("、");
+   l.bindPopup(h);l.bindTooltip(esc(k)+(d.all?"｜"+d.all+" 萬":""),{sticky:true});
+   l.on("mouseover",function(){l.setStyle({weight:3,color:"#1e3a8a"})});l.on("mouseout",function(){lay.resetStyle(l)});
+   if(d.mine&&d.mine.length){var c=l.getBounds().getCenter();L.marker(c,{icon:L.divIcon({className:"mine",html:"🏭<b>"+d.mine.length+"</b>",iconSize:[38,22]})}).addTo(map).bindPopup(h)}
+  }}).addTo(map);
+ map.fitBounds(L.featureGroup(focus.length?focus:[lay]).getBounds(),{padding:[10,10]});
+ var lg="";var lo=[vals[0]].concat(br);for(var i=0;i<5;i++){lg+='<span><i style="background:'+RAMP[i]+'"></i>'+(i<4?Math.round(lo[i])+"–"+Math.round(br[i]):Math.round(br[3])+"+")+"</span>"}
+ lg+='<span><i style="background:'+NODATA+'"></i>筆數不足</span>';document.getElementById("pleg").innerHTML="萬／地坪："+lg;
+}).catch(function(){document.getElementById("pmap").style.display="none"});
+})();
+</script>
+<h2>各區行情一覽</h2>
 <div class="tbl"><table class="deals"><thead><tr><th>地區</th><th>近一年成交筆數</th><th>土地中位數<br>（萬／地坪）</th><th>廠房中位數<br>（萬／地坪）</th></tr></thead><tbody><tr><td><a href="../price/gangshan.html">岡山區</a></td><td>14</td><td>15</td><td>24.6</td></tr><tr><td><a href="../price/daliao.html">大寮區</a></td><td>21</td><td>19.6</td><td>24.6</td></tr><tr><td><a href="../price/luzhu.html">路竹區</a></td><td>14</td><td>10</td><td>23.9</td></tr><tr><td><a href="../price/renwu.html">仁武區</a></td><td>9</td><td>26.6</td><td>30.1</td></tr><tr><td><a href="../price/yanchao.html">燕巢區</a></td><td>11</td><td>15.3</td><td>22.5</td></tr><tr><td><a href="../price/dashu.html">大樹區</a></td><td>17</td><td>16.6</td><td>22.4</td></tr><tr><td><a href="../price/sanmin.html">三民區</a></td><td>9</td><td>30</td><td>60.1</td></tr><tr><td><a href="../price/hunei.html">湖內區</a></td><td>11</td><td>18.1</td><td>20.2</td></tr><tr><td><a href="../price/dashe.html">大社區</a></td><td>7</td><td>22.4</td><td>26.2</td></tr><tr><td><a href="../price/niaosong.html">鳥松區</a></td><td>7</td><td>35.6</td><td>32.4</td></tr><tr><td><a href="../price/linyuan.html">林園區</a></td><td>2</td><td>6.9</td><td>13.1</td></tr><tr><td><a href="../price/xiaogang.html">小港區</a></td><td>5</td><td>—</td><td>24.4</td></tr><tr><td><a href="../price/fengshan.html">鳳山區</a></td><td>2</td><td>—</td><td>32.5</td></tr><tr><td><a href="../price/mituo.html">彌陀區</a></td><td>1</td><td>—</td><td>3.5</td></tr><tr><td><a href="../price/qianzhen.html">前鎮區</a></td><td>3</td><td>8.9</td><td>44.7</td></tr><tr><td><a href="../price/nanzi.html">楠梓區</a></td><td>2</td><td>35</td><td>—</td></tr><tr><td><a href="../price/zuoying.html">左營區</a></td><td>2</td><td>—</td><td>40</td></tr><tr><td><a href="../price/ziguan.html">梓官區</a></td><td>3</td><td>—</td><td>34.5</td></tr><tr><td><a href="../price/qieding.html">茄萣區</a></td><td>4</td><td>7.6</td><td>15.9</td></tr><tr><td><a href="../price/meinong.html">美濃區</a></td><td>0</td><td>—</td><td>—</td></tr></tbody></table></div>
 <p class="meta">資料來源：內政部實價登錄開放資料，2026-10-09 更新。地坪單價＝總價÷土地坪數（房地含建物價值），已排除政府標售、親友等特殊交易。</p>
 <div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>

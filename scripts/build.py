@@ -843,6 +843,9 @@ def price_page_html(dist, deals, upd, pages, listings):
 <div class="stats"><div><span>近一年成交</span><b>{n} 筆</b></div><div><span>土地 地坪單價中位數</span><b>{E(_stat_text(lm, ln))}</b></div><div><span>廠房（房地） 地坪單價中位數</span><b>{E(_stat_text(bm, bn))}</b></div></div>
 <p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數（房地含建物價值），單位：萬元。已排除政府標售、親友等特殊交易 {sp} 筆。位置只顯示到路名，土地交易不顯示位置。</p>
 {mine_html}
+{trend_svg(deals)}
+{scatter_svg(deals)}
+<h2>近期成交明細</h2>
 <div class="tbl"><table class="deals"><thead><tr><th>年月</th><th>位置</th><th>標的</th><th>分區</th><th>土地坪</th><th>建坪</th><th>總價</th><th>地坪單價</th></tr></thead><tbody>{rows}</tbody></table></div>
 <div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>實價登錄只看得到成交價，看不到屋況、面寬、電力和路寬。加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
@@ -851,6 +854,138 @@ def price_page_html(dist, deals, upd, pages, listings):
 {FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="./">實價行情總覽</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
 </body></html>
 """
+
+
+# ---------- 行情圖表（純 SVG，不需外部套件）----------
+C_BLD, C_LAND = "#2a78d6", "#d97706"  # 房地／土地（已用 dataviz 驗證色盲可分辨）
+
+
+def _half(d):
+    y, m = int(d[:4]), int(d[5:7])
+    return f"{y}{'上' if m <= 6 else '下'}"
+
+
+def trend_svg(deals):
+    ok = [d for d in deals if not d["special"] and _deal_unit(d)]
+    if not ok:
+        return ""
+    b = {}
+    for d in ok:
+        b.setdefault(_half(d["date"]), []).append(_deal_unit(d))
+    keys = sorted(b, key=lambda k: (k[:4], k[4] == "下"))
+    pts = [(k, _median(b[k]), len(b[k])) for k in keys]
+    if len(pts) < 3:
+        return ""
+    W, H, L, R, T, B = 640, 260, 52, 70, 20, 40
+    vmax = max(v for _, v, _ in pts) * 1.15
+    step = 10 if vmax <= 60 else 20 if vmax <= 120 else 50
+    vmax = (int(vmax // step) + 1) * step
+    x = lambda i: L + (W - L - R) * (i / (len(pts) - 1))
+    y = lambda v: T + (H - T - B) * (1 - v / vmax)
+    g = "".join(f'<line x1="{L}" x2="{W-R}" y1="{y(t):.1f}" y2="{y(t):.1f}" class="gr"/><text x="{L-8}" y="{y(t)+4:.1f}" class="ax" text-anchor="end">{t}</text>'
+                for t in range(0, vmax + 1, step))
+    xl = "".join(f'<text x="{x(i):.1f}" y="{H-14}" class="ax" text-anchor="middle">{k[:4]}{k[4]}</text>' for i, (k, _, _) in enumerate(pts))
+    path = " ".join(f"{'M' if i == 0 else 'L'}{x(i):.1f},{y(v):.1f}" for i, (_, v, _) in enumerate(pts))
+    dots = "".join(f'<g class="pt"><circle cx="{x(i):.1f}" cy="{y(v):.1f}" r="12" fill="transparent"/><circle cx="{x(i):.1f}" cy="{y(v):.1f}" r="4.5" fill="{C_BLD}" stroke="#fff" stroke-width="2"/>'
+                   f'<title>{k[:4]} {"上半年" if k[4] == "上" else "下半年"}：中位數 {v:g} 萬／地坪（{n} 筆）</title></g>'
+                   for i, (k, v, n) in enumerate(pts))
+    last = pts[-1]
+    lab = f'<text x="{x(len(pts)-1)+10:.1f}" y="{y(last[1])+5:.1f}" class="lb">{last[1]:g} 萬</text>'
+    return (f'<figure class="chart"><figcaption>地坪單價中位數走勢（半年，萬／地坪）</figcaption>'
+            f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="地坪單價中位數走勢">{g}{xl}'
+            f'<path d="{path}" fill="none" stroke="{C_BLD}" stroke-width="2"/>{dots}{lab}</svg>'
+            f'<p class="meta">每個點是該半年所有成交（土地＋房地）的中位數，滑過或點一下看筆數。</p></figure>')
+
+
+def scatter_svg(deals):
+    import math
+    ok = [d for d in deals if not d["special"] and _deal_unit(d) >= 3 and d.get("land_ping", 0) >= 10]  # 單價過低多為持分、道路用地
+    if len(ok) < 5:
+        return ""
+    W, H, L, R, T, B = 640, 300, 52, 16, 20, 44
+    xs = [d["land_ping"] for d in ok]
+    us = sorted(_deal_unit(d) for d in ok)
+    p95 = us[int(len(us) * 0.95) - 1] if len(us) > 1 else us[0]
+    vmax = max(p95 * 1.3, 10)
+    step = 10 if vmax <= 60 else 20 if vmax <= 120 else 50
+    vmax = (int(vmax // step) + 1) * step
+    xs_s = sorted(xs)
+    xcap = xs_s[min(len(xs_s) - 1, int(len(xs_s) * 0.98))]
+    ok = [d for d in ok if d["land_ping"] <= xcap]
+    lx0, lx1 = math.log10(max(min(xs), 10)), math.log10(xcap * 1.15)
+    if lx1 - lx0 < 1:
+        lx1 = lx0 + 1
+    x = lambda v: L + (W - L - R) * ((math.log10(v) - lx0) / (lx1 - lx0))
+    y = lambda v: T + (H - T - B) * (1 - min(v, vmax) / vmax)
+    g = "".join(f'<line x1="{L}" x2="{W-R}" y1="{y(t):.1f}" y2="{y(t):.1f}" class="gr"/><text x="{L-8}" y="{y(t)+4:.1f}" class="ax" text-anchor="end">{t}</text>'
+                for t in range(0, vmax + 1, step))
+    ticks = [t for t in (10, 30, 100, 300, 1000, 3000, 10000) if lx0 <= math.log10(t) <= lx1]
+    xl = "".join(f'<text x="{x(t):.1f}" y="{H-22}" class="ax" text-anchor="middle">{t:,}</text>' for t in ticks)
+    xl += f'<text x="{(L+W-R)/2:.0f}" y="{H-4}" class="ax" text-anchor="middle">土地坪數（對數刻度）</text>'
+    dots = ""
+    for d in sorted(ok, key=lambda d: d["date"]):
+        u = _deal_unit(d)
+        c = C_LAND if d["kind"] == "土地" else C_BLD
+        k = "土地" if d["kind"] == "土地" else "房地"
+        over = u > vmax
+        dots += (f'<g class="pt"><circle cx="{x(d["land_ping"]):.1f}" cy="{y(u):.1f}" r="5" fill="{c}" fill-opacity=".85" stroke="#fff" stroke-width="1.5"{" stroke-dasharray=\"2 2\"" if over else ""}/>'
+                 f'<title>{d["date"][:7]}｜{d["road"] or "（未揭露位置）"}｜{k}｜土地 {d["land_ping"]:,.0f} 坪｜{_wan(d["total_wan"])}｜{u:g} 萬／地坪{"（超出圖表上緣）" if over else ""}</title></g>')
+    leg = (f'<div class="legend"><span><i style="background:{C_BLD}"></i>房地（廠房＋土地）</span>'
+           f'<span><i style="background:{C_LAND}"></i>純土地</span></div>')
+    return (f'<figure class="chart"><figcaption>每筆成交：土地坪數 × 地坪單價（萬／地坪）</figcaption>{leg}'
+            f'<svg viewBox="0 0 {W} {H}" role="img" aria-label="土地坪數與地坪單價散佈圖">{g}{xl}{dots}</svg>'
+            f'<p class="meta">對照自己的坪數，看同區類似大小的成交落在哪裡。滑過或點一下圓點看明細。</p></figure>')
+
+
+def map_block(by, upd, live):
+    """總覽頁的區行情地圖（Leaflet + 開放地圖），資料寫在 data/lvr/map.json"""
+    since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
+    m = {}
+    for k, v in by.items():
+        rec = [d for d in v if not d["special"] and d["date"] >= since and _deal_unit(d)]
+        n, (lm, ln), (bm, bn) = _stats(v, since)
+        m[k] = {"n": n, "all": _median([_deal_unit(d) for d in rec]) if len(rec) >= 3 else None,
+                "land": lm if ln else None, "ln": ln, "bld": bm if bn else None, "bn": bn,
+                "page": PRICE_PAGES.get(k, ""), "mine": []}
+    for l in live:
+        c, d = loc(l)
+        if c == "高雄" and d in m:
+            m[d]["mine"].append({"id": l["id"], "t": l["title"]})
+        elif c == "高雄" and d:
+            m[d] = {"n": 0, "all": None, "land": None, "ln": 0, "bld": None, "bn": 0, "page": "", "mine": [{"id": l["id"], "t": l["title"]}]}
+    (ROOT / "data" / "lvr" / "map.json").write_text(json.dumps(m, ensure_ascii=False), "utf-8")
+    return """<div class="mapwrap"><div id="pmap" role="img" aria-label="高雄各區工業地地坪單價地圖"></div><div class="maplegend" id="pleg"></div></div>
+<p class="meta">顏色越深＝近一年工業地・廠房地坪單價中位數越高（萬／地坪）；灰色＝成交少於 3 筆。🏭＝目前有我的物件。點地區看詳細。</p>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+var RAMP=["#b7d3f6","#86b6ef","#3987e5","#1c5cab","#0d366b"],NODATA="#e5e4df";
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){return r.json()}),fetch("../data/lvr/map.json").then(function(r){return r.json()})]).then(function(a){
+ var geo=a[0],M=a[1],vals=Object.keys(M).map(function(k){return M[k].all}).filter(function(v){return v}).sort(function(x,y){return x-y});
+ var br=[1,2,3,4].map(function(i){return vals[Math.floor(vals.length*i/5)]});
+ function col(v){if(!v)return NODATA;for(var i=0;i<4;i++)if(v<br[i])return RAMP[i];return RAMP[4]}
+ var map=L.map("pmap",{scrollWheelZoom:false,attributionControl:true});
+ L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:16,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>｜行政區界：內政部'}).addTo(map);
+ var focus=[];
+ var lay=L.geoJSON(geo,{style:function(f){var d=M[f.properties.name]||{};return {color:"#ffffff",weight:1.5,fillColor:col(d.all),fillOpacity:d.all?.78:.45}},
+  onEachFeature:function(f,l){var k=f.properties.name,d=M[k]||{};if(d.n||(d.mine&&d.mine.length))focus.push(l);
+   var h="<b>"+esc(k)+"</b><br>近一年成交："+(d.n||0)+" 筆";
+   if(d.all)h+="<br>地坪單價中位數：<b>"+d.all+" 萬</b>";
+   if(d.land)h+="<br>土地："+d.land+" 萬（"+d.ln+" 筆）";if(d.bld)h+="<br>廠房（房地）："+d.bld+" 萬（"+d.bn+" 筆）";
+   if(d.page)h+='<br><a href="../'+esc(d.page)+'">看'+esc(k)+'每一筆成交 →</a>';
+   if(d.mine&&d.mine.length)h+="<br>🏭 我的物件："+d.mine.map(function(x){return '<a href="../p/'+esc(x.id)+'.html">'+esc(x.t)+"</a>"}).join("、");
+   l.bindPopup(h);l.bindTooltip(esc(k)+(d.all?"｜"+d.all+" 萬":""),{sticky:true});
+   l.on("mouseover",function(){l.setStyle({weight:3,color:"#1e3a8a"})});l.on("mouseout",function(){lay.resetStyle(l)});
+   if(d.mine&&d.mine.length){var c=l.getBounds().getCenter();L.marker(c,{icon:L.divIcon({className:"mine",html:"🏭<b>"+d.mine.length+"</b>",iconSize:[38,22]})}).addTo(map).bindPopup(h)}
+  }}).addTo(map);
+ map.fitBounds(L.featureGroup(focus.length?focus:[lay]).getBounds(),{padding:[10,10]});
+ var lg="";var lo=[vals[0]].concat(br);for(var i=0;i<5;i++){lg+='<span><i style="background:'+RAMP[i]+'"></i>'+(i<4?Math.round(lo[i])+"–"+Math.round(br[i]):Math.round(br[3])+"+")+"</span>"}
+ lg+='<span><i style="background:'+NODATA+'"></i>筆數不足</span>';document.getElementById("pleg").innerHTML="萬／地坪："+lg;
+}).catch(function(){document.getElementById("pmap").style.display="none"});
+})();
+</script>"""
 
 
 def write_price_pages(pages, live):
@@ -875,6 +1010,7 @@ def write_price_pages(pages, live):
     for f in out.glob("*.html"):
         if f.name != "index.html" and f"price/{f.name}" not in keep:
             f.unlink()
+    map_html = map_block(by, upd, live)
     (ROOT / "data" / "lvr" / "pages.json").write_text(json.dumps(PRICE_PAGES, ensure_ascii=False), "utf-8")  # 給 app.js 用
     E = html.escape
     since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
@@ -895,6 +1031,8 @@ def write_price_pages(pages, live):
 {HEAD_NAV}
 <main><h1>高雄工業地產實價登錄行情</h1>
 <p>整理高雄各區工業區、丁種建築用地與廠房的實價登錄成交，每 10 天自動更新。點地區看近期每一筆成交。</p>
+{map_html}
+<h2>各區行情一覽</h2>
 <div class="tbl"><table class="deals"><thead><tr><th>地區</th><th>近一年成交筆數</th><th>土地中位數<br>（萬／地坪）</th><th>廠房中位數<br>（萬／地坪）</th></tr></thead><tbody>{trs}</tbody></table></div>
 <p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數（房地含建物價值），已排除政府標售、親友等特殊交易。</p>
 <div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
