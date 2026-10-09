@@ -365,7 +365,7 @@ def landing_defs(live):
 
 HEAD_NAV = """<header>
  <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
- <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../#need">找不到合適的？</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
+ <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../#need">找不到合適的？</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
 </header>"""
 FOOT = """<footer><div class="in">
  <img src="../logo.png" alt="富住通商用不動產"><br>
@@ -1139,6 +1139,35 @@ def write_share_pages(data):
     write_site_files(pub, pages)
 
 
+def write_tools_page():
+    body = ROOT / "scripts" / "tools_body.html"
+    if not body.exists():
+        return False
+    (ROOT / "tools").mkdir(exist_ok=True)
+    desc = "廠房租金與稅費拆算（個人／法人房東、10% 扣繳、二代健保、5% 營業稅）、置產投報率、建蔽率容積率試算。結果可複製或分享給老闆。富住通商用不動產 楊紘珉。"
+    ld = {"@context": "https://schema.org", "@type": "WebApplication", "name": "工業地產試算工具", "url": f"{SITE}/tools/",
+          "applicationCategory": "FinanceApplication", "operatingSystem": "Any", "inLanguage": "zh-Hant",
+          "offers": {"@type": "Offer", "price": "0", "priceCurrency": "TWD"}, "description": desc}
+    (ROOT / "tools" / "index.html").write_text(f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>廠房租金稅費試算・投報率・建蔽率容積率計算機｜富住通 楊紘珉</title>
+<meta name="description" content="{html.escape(desc)}">
+<link rel="canonical" href="{SITE}/tools/">
+<meta property="og:type" content="website"><meta property="og:title" content="工業地產試算工具｜租金稅費・投報率・建蔽容積"><meta property="og:description" content="{html.escape(desc)}"><meta property="og:url" content="{SITE}/tools/">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css?v={CSS_V}">
+<script type="application/ld+json">{jdump(ld)}</script>
+{TRACK}
+</head><body>
+{HEAD_NAV}
+{body.read_text("utf-8")}
+{FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="../price/">實價行情</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
+</body></html>
+""", "utf-8")
+    return True
+
+
 def write_site_files(pub, pages=()):
     E = html.escape
     live = [l for l in pub if l.get("status") == "上架"]
@@ -1162,7 +1191,8 @@ def write_site_files(pub, pages=()):
     urls = ([f"{SITE}/", f"{SITE}/all.html"] + [f"{SITE}/{p['path']}" for p in pages]
             + [f"{SITE}/p/{l['id']}.html" for l in live]
             + ([f"{SITE}/a/"] + [f"{SITE}/{p}" for p, _, _ in ARTICLES] if ARTICLES else [])
-            + ([f"{SITE}/price/"] + [f"{SITE}/{p}" for p in PRICE_PAGES.values()] if PRICE_PAGES else []))
+            + ([f"{SITE}/price/"] + [f"{SITE}/{p}" for p in PRICE_PAGES.values()] if PRICE_PAGES else [])
+            + ([f"{SITE}/tools/"] if write_tools_page() else []))
     (ROOT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"<url><loc>{E(u)}</loc></url>\n" for u in urls) + "</urlset>\n", "utf-8")
     (ROOT / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /admin.html\n\nSitemap: {SITE}/sitemap.xml\n", "utf-8")

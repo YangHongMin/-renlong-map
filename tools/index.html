@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>廠房租金稅費試算・投報率・建蔽率容積率計算機｜富住通 楊紘珉</title>
+<meta name="description" content="廠房租金與稅費拆算（個人／法人房東、10% 扣繳、二代健保、5% 營業稅）、置產投報率、建蔽率容積率試算。結果可複製或分享給老闆。富住通商用不動產 楊紘珉。">
+<link rel="canonical" href="https://fulllife.blog/tools/">
+<meta property="og:type" content="website"><meta property="og:title" content="工業地產試算工具｜租金稅費・投報率・建蔽容積"><meta property="og:description" content="廠房租金與稅費拆算（個人／法人房東、10% 扣繳、二代健保、5% 營業稅）、置產投報率、建蔽率容積率試算。結果可複製或分享給老闆。富住通商用不動產 楊紘珉。"><meta property="og:url" content="https://fulllife.blog/tools/">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css?v=6450f224">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "工業地產試算工具", "url": "https://fulllife.blog/tools/", "applicationCategory": "FinanceApplication", "operatingSystem": "Any", "inLanguage": "zh-Hant", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "TWD"}, "description": "廠房租金與稅費拆算（個人／法人房東、10% 扣繳、二代健保、5% 營業稅）、置產投報率、建蔽率容積率試算。結果可複製或分享給老闆。富住通商用不動產 楊紘珉。"}</script>
+<script>
+(function(){var OWNER=false;try{OWNER=localStorage.getItem("is_owner")==="1"}catch(e){}
+window.ev=function(){};if(OWNER)return;
+window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};
+var gs=document.createElement("script");gs.async=true;gs.src="https://www.googletagmanager.com/gtag/js?id=G-5YXFVRJ2JM";document.head.appendChild(gs);
+gtag("js",new Date());gtag("config","G-5YXFVRJ2JM");
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");
+fbq("init","996673046774269");fbq("track","PageView");
+window.ev=function(n){try{gtag("event",n,{page:location.pathname});fbq("track","Lead",{content_name:location.pathname})}catch(e){}};
+})();
+</script>
+</head><body>
+<header>
+ <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
+ <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../#need">找不到合適的？</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
+</header>
+<!-- 試算工具頁內容；build.py 會加上頁首、頁尾、追蹤碼，輸出為 tools/index.html -->
+<main class="tools">
+<h1>工業地產試算工具</h1>
+<p>租金稅費拆算、投報率、建蔽率容積率，三個常用試算一次整理。結果可以一鍵複製，或用分享連結傳給老闆、股東。</p>
+<nav class="tabs" role="tablist">
+ <a href="#rent" data-t="rent" role="tab">廠房租金與稅費拆算</a>
+ <a href="#roi" data-t="roi" role="tab">置產投報率</a>
+ <a href="#far" data-t="far" role="tab">建蔽率・容積率</a>
+</nav>
+
+<section id="t-rent" class="tool" hidden>
+ <h2>廠房租金與稅費拆算</h2>
+ <p class="meta">企業承租、個人或法人出租時，合約要寫多少、公司要扣多少、房東實拿多少，一次算清楚。</p>
+ <div class="fg">
+  <label>出租方<select id="r_who"><option value="p">個人房東</option><option value="c">法人（公司）房東</option></select></label>
+  <label>這個金額是<select id="r_mode"><option value="net">屋主實收（房東實拿／未稅）</option><option value="gross">合約租金（個人：扣繳前；法人：含稅）</option></select></label>
+  <label>月租金（元）<input id="r_amt" type="number" inputmode="numeric" min="0" step="1000" value="200000"></label>
+  <label class="pOnly">建物租金占比（%）<input id="r_bld" type="number" inputmode="numeric" min="0" max="100" step="5" value="60"><small>土地與建物一起出租時，只有建物部分可扣 43% 必要費用</small></label>
+  <label class="pOnly">土地年地價稅（元，選填）<input id="r_ltax" type="number" inputmode="numeric" min="0" step="1000" value="0"></label>
+ </div>
+ <div class="out" id="r_out"></div>
+ <details class="rules"><summary>計算依據</summary>
+  <ul>
+   <li>個人房東：承租公司每次給付租金超過 20,000 元時，依 10% 扣繳所得稅；扣繳的稅款可在房東年度結算申報時抵減。</li>
+   <li>二代健保補充保費：單次給付達 20,000 元，依 2.11% 扣取，單次超過 1,000 萬元的部分免計。</li>
+   <li>法人房東：開立統一發票，營業稅 5%；承租公司不需扣繳。承租公司若為營業人，進項稅額通常可扣抵。</li>
+   <li>個人房東租賃所得：房屋租金可直接扣除 43% 必要費用；土地租金只能扣除當年度實際繳納的地價稅。</li>
+   <li>金額以元為單位四捨五入，實際以扣繳憑單、發票及主管機關規定為準。</li>
+  </ul>
+ </details>
+</section>
+
+<section id="t-roi" class="tool" hidden>
+ <h2>廠房置產投報率</h2>
+ <p class="meta">輸入總價和租金，算出毛報酬率、淨報酬率與回本年數。</p>
+ <div class="fg">
+  <label>物件總價（萬元）<input id="i_price" type="number" inputmode="decimal" min="0" step="100" value="8000"></label>
+  <label>月租金（萬元）<input id="i_rent" type="number" inputmode="decimal" min="0" step="1" value="25"><small>或用下方「坪數 × 每坪月租」自動帶入</small></label>
+  <label>建物坪數（選填）<input id="i_ping" type="number" inputmode="decimal" min="0" step="10" value=""></label>
+  <label>每坪月租（元，選填）<input id="i_pp" type="number" inputmode="decimal" min="0" step="10" value=""></label>
+  <label>每年持有成本（萬元）<input id="i_cost" type="number" inputmode="decimal" min="0" step="1" value="15"><small>地價稅、房屋稅、保險、管理維修等合計</small></label>
+  <label>每年預估空租（月）<input id="i_vac" type="number" inputmode="decimal" min="0" max="12" step="0.5" value="0"></label>
+ </div>
+ <div class="out" id="i_out"></div>
+ <p class="meta">想對照區域行情？看 <a href="../price/">高雄工業地實價行情</a>。</p>
+</section>
+
+<section id="t-far" class="tool" hidden>
+ <h2>建蔽率・容積率試算</h2>
+ <p class="meta">一塊地最多能蓋多大？選分區、填坪數就能算出建築面積與總樓地板面積。</p>
+ <div class="fg">
+  <label>使用分區<select id="f_zone">
+   <option value="50,200">高雄市 甲種工業區（預設 50%／200%）</option>
+   <option value="60,300">高雄市 乙種工業區（預設 60%／300%）</option>
+   <option value="70,200">高雄市 零星工業區（預設 70%／200%）</option>
+   <option value="40,160">高雄市 特種工業區（預設 40%／160%）</option>
+   <option value="70,300">丁種建築用地（非都市，70%／300%）</option>
+   <option value="60,240">甲種建築用地（非都市，60%／240%）</option>
+   <option value="">自訂</option>
+  </select></label>
+  <label>土地面積（坪）<input id="f_ping" type="number" inputmode="decimal" min="0" step="10" value="500"></label>
+  <label>建蔽率（%）<input id="f_bcr" type="number" inputmode="decimal" min="0" max="100" step="5" value="50"><small>依該地都市計畫書規定修改</small></label>
+  <label>容積率（%）<input id="f_far" type="number" inputmode="decimal" min="0" step="10" value="200"></label>
+ </div>
+ <div class="out" id="f_out"></div>
+ <details class="rules"><summary>注意事項</summary>
+  <ul>
+   <li>預設值：都市計畫內依《高雄市都市計畫法施行細則》附表二（115 年 6 月 1 日修正）；非都市土地依《非都市土地使用管制規則》。<b>各都市計畫書另有規定者從其規定</b>，同一種分區在不同計畫區數字可能不同，請以土地使用分區證明及計畫書為準。</li>
+   <li>參考樓層數＝容積率÷建蔽率，是「每層都蓋滿建蔽率」時的層數；實際還受高度限制、退縮、法定空地、停車與消防規定影響。</li>
+   <li>未計入容積獎勵、容積移轉，以及陽台、梯間等不計容積的面積。</li>
+  </ul>
+ </details>
+</section>
+
+<div class="acts" id="acts">
+ <button type="button" class="btn line" id="b_copy">複製試算結果</button>
+ <button type="button" class="btn tel" id="b_share">複製分享連結</button>
+</div>
+<div class="join"><div><h3>想要更精準的評估？</h3>
+ <p>本試算結果係依現行法規估算，實際稅率、建蔽率與容積率，仍需以政府主管機關與現場實況為準。點擊下方 LINE，傳送您的需求，由紘珉為您進行現場精準評估與規劃。</p>
+ <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 專人複核</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
+<p class="meta">規定核對日期：2026 年 10 月。法規或費率若有調整，以主管機關公告為準。</p>
+</main>
+<div id="toast"></div>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var n=function(i){var v=parseFloat(($(i)||{}).value);return isFinite(v)?v:0};
+var f0=function(v){return Math.round(v).toLocaleString("zh-TW")};
+var f1=function(v,d){return (Math.round(v*Math.pow(10,d||1))/Math.pow(10,d||1)).toLocaleString("zh-TW")};
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+var cur="rent",TXT={};
+function rows(list){return '<table class="res">'+list.map(function(r){return '<tr'+(r[2]?' class="hl"':'')+'><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>'}).join("")+'</table>'}
+function toast(t){var e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(function(){e.style.display="none"},2500)}
+
+/* ---- 1. 租金與稅費 ---- */
+var TAXR=0.10,NHIR=0.0211,TH=20000,NHICAP=1e7;
+function indiv(R){var tax=R>TH?Math.round(R*TAXR):0,nhi=R>=TH?Math.round(Math.min(R,NHICAP)*NHIR):0;return {R:R,tax:tax,nhi:nhi,net:R-tax-nhi}}
+function calcRent(){
+ var who=$("r_who").value,mode=$("r_mode").value,a=n("r_amt"),out=[],txt=[];
+ document.querySelectorAll(".pOnly").forEach(function(e){e.style.display=who==="p"?"":"none"});
+ if(who==="p"){
+  var x;
+  if(mode==="gross"){x=indiv(a)}else{
+   if(a<TH){x=indiv(a)}else{var R=Math.floor(a/(1-TAXR-NHIR));x=indiv(R);while(x.net<a){R++;x=indiv(R)}}
+  }
+  var bld=Math.min(Math.max(n("r_bld"),0),100)/100,lt=n("r_ltax"),yr=x.R*12;
+  var inc=yr*bld*(1-0.43)+Math.max(0,yr*(1-bld)-lt);
+  out=[["合約月租金（名目）",f0(x.R)+" 元",1],["承租公司每月總支出",f0(x.R)+" 元"],["其中代扣所得稅 10%",f0(x.tax)+" 元"+(x.tax?"":"（未超過 2 萬元免扣繳）")],["其中代扣二代健保 2.11%",f0(x.nhi)+" 元"+(x.nhi?"":"（未達 2 萬元免扣）")],["房東每月實拿",f0(x.net)+" 元",1],["房東年度租賃所得（預估）",f0(inc)+" 元"],["年度已預扣所得稅（可抵減）",f0(x.tax*12)+" 元"]];
+  txt.push("【廠房租金稅費試算｜個人房東】");
+ }else{
+  var ex,vat;
+  if(mode==="gross"){ex=Math.round(a/1.05);vat=a-ex}else{ex=a;vat=Math.round(a*0.05)}
+  out=[["未稅月租金（房東收入）",f0(ex)+" 元",1],["營業稅 5%",f0(vat)+" 元"],["發票金額（含稅）",f0(ex+vat)+" 元",1],["承租公司每月總支出",f0(ex+vat)+" 元（營業人進項稅額通常可扣抵）"],["代扣所得稅／二代健保","不需扣繳（法人房東開立發票）"]];
+  txt.push("【廠房租金稅費試算｜法人房東】");
+ }
+ $("r_out").innerHTML=rows(out);
+ TXT.rent=txt.concat(["輸入："+($("r_mode").value==="net"?"屋主實收":"合約租金")+" "+f0(a)+" 元／月"],out.map(function(r){return r[0]+"："+r[1]})).join("\n");
+}
+/* ---- 3. 投報率 ---- */
+function calcRoi(){
+ var p=n("i_ping"),pp=n("i_pp");
+ if(p&&pp&&document.activeElement&&(document.activeElement.id==="i_ping"||document.activeElement.id==="i_pp")){$("i_rent").value=Math.round(p*pp/100)/100}
+ var price=n("i_price"),rent=n("i_rent"),cost=n("i_cost"),vac=Math.min(Math.max(n("i_vac"),0),12),out;
+ if(!price||!rent){out=[["請輸入總價與月租金",""]]}else{
+  var gy=rent*12/price*100,ni=rent*(12-vac)-cost,ny=ni/price*100,pb=ni>0?price/ni:0;
+  out=[["毛租金收益率",f1(gy,2)+" %",1],["年租金收入（扣除空租）",f1(rent*(12-vac),1)+" 萬元"],["年持有成本",f1(cost,1)+" 萬元"],["年淨收入",f1(ni,1)+" 萬元"],["淨租金收益率",f1(ny,2)+" %",1],["預估回本年數",pb?f1(pb,1)+" 年":"淨收入為負，無法回本"]];
+ }
+ $("i_out").innerHTML=rows(out);
+ TXT.roi=["【廠房置產投報率試算】","總價："+f1(price,0)+" 萬元｜月租："+f1(rent,1)+" 萬元｜持有成本："+f1(cost,1)+" 萬元／年｜空租："+vac+" 月／年"].concat(out.map(function(r){return r[0]+"："+r[1]})).join("\n");
+}
+/* ---- 2. 建蔽率容積率 ---- */
+function calcFar(){
+ var land=n("f_ping"),b=n("f_bcr"),r=n("f_far"),out;
+ if(!land||!b||!r){out=[["請輸入土地面積、建蔽率與容積率",""]]}else{
+  var bf=land*b/100,tf=land*r/100,fl=r/b;
+  out=[["一樓最大建築面積",f1(bf,1)+" 坪（約 "+f0(bf/0.3025)+" ㎡）",1],["總樓地板面積上限（容積）",f1(tf,1)+" 坪（約 "+f0(tf/0.3025)+" ㎡）",1],["參考樓層數（每層蓋滿建蔽率）","約 "+f1(fl,1)+" 層"],["法定空地（至少）",f1(land-bf,1)+" 坪"]];
+ }
+ $("f_out").innerHTML=rows(out);
+ var z=$("f_zone");TXT.far=["【建蔽率・容積率試算】","分區："+z.options[z.selectedIndex].text+"｜土地 "+f1(land,1)+" 坪｜建蔽率 "+b+"%｜容積率 "+r+"%"].concat(out.map(function(r){return r[0]+"："+r[1]})).join("\n");
+}
+$("f_zone").addEventListener("change",function(){var v=this.value;if(v){var a=v.split(",");$("f_bcr").value=a[0];$("f_far").value=a[1]}calcAll()});
+["f_bcr","f_far"].forEach(function(i){$(i).addEventListener("input",function(){$("f_zone").value=""})});
+
+/* ---- 共用：分頁、分享、複製 ---- */
+var FIELDS={rent:["r_who","r_mode","r_amt","r_bld","r_ltax"],roi:["i_price","i_rent","i_ping","i_pp","i_cost","i_vac"],far:["f_zone","f_ping","f_bcr","f_far"]};
+function calcAll(){calcRent();calcRoi();calcFar()}
+function show(t){if(!FIELDS[t])t="rent";cur=t;document.querySelectorAll(".tool").forEach(function(s){s.hidden=s.id!=="t-"+t});document.querySelectorAll(".tabs a").forEach(function(a){a.classList.toggle("on",a.dataset.t===t)})}
+function load(){
+ var h=location.hash.replace(/^#/,""),parts=h.split("?"),t=parts[0]||"rent",q=new URLSearchParams(parts[1]||"");
+ (FIELDS[t]||[]).forEach(function(i){if(q.has(i)){var e=$(i);e.value=q.get(i).slice(0,20)}});
+ show(t);calcAll();
+}
+document.querySelectorAll(".fg input,.fg select").forEach(function(e){e.addEventListener("input",calcAll);e.addEventListener("change",calcAll)});
+window.addEventListener("hashchange",load);
+function shareUrl(){var q=FIELDS[cur].map(function(i){return i+"="+encodeURIComponent($(i).value)}).join("&");return location.origin+location.pathname+"#"+cur+"?"+q}
+function copy(t,msg){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){toast(msg)},function(){window.prompt("請手動複製：",t)})}
+$("b_copy").onclick=function(){copy(TXT[cur]+"\n\n試算網址："+shareUrl()+"\n※ 本試算依現行法規估算，實際以主管機關規定與現場實況為準。富住通商用不動產 楊紘珉 LINE @447lrpzt","已複製試算結果，可以貼到 LINE 了");ev("tool_copy")};
+$("b_share").onclick=function(){copy(shareUrl(),"已複製分享連結");ev("tool_share")};
+load();
+})();
+</script>
+
+<footer><div class="in">
+ <img src="../logo.png" alt="富住通商用不動產"><br>
+ <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
+ 營業員：楊紘珉｜(114)登字第486430號<br>
+ <a href="../all.html">全部物件清單</a>｜<a href="../price/">實價行情</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a><br>
+ <span style="opacity:.75">本網站資料僅供參考，實際內容以現場及契約為準</span><br><span style="opacity:.75;font-size:12px">本網站使用 Google Analytics 與 Meta Pixel 蒐集匿名瀏覽統計，用於了解網站使用情形與廣告成效。</span>
+</div></footer>
+</body></html>
