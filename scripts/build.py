@@ -362,7 +362,7 @@ def landing_defs(live):
 
 HEAD_NAV = """<header>
  <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
- <nav><a href="../">工業物件</a><a href="../#need">找不到合適的？</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
+ <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../#need">找不到合適的？</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
 </header>"""
 FOOT = """<footer><div class="in">
  <img src="../logo.png" alt="富住通商用不動產"><br>
@@ -857,6 +857,7 @@ def write_price_pages(pages, live):
     for f in out.glob("*.html"):
         if f.name != "index.html" and f"price/{f.name}" not in keep:
             f.unlink()
+    (ROOT / "data" / "lvr" / "pages.json").write_text(json.dumps(PRICE_PAGES, ensure_ascii=False), "utf-8")  # 給 app.js 用
     E = html.escape
     since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
     trs = ""

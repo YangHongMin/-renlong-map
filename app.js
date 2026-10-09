@@ -42,6 +42,8 @@ const vis=()=>all.filter(l=>l.status!=="待確認");
 const $=document.getElementById("app");
 const dist=l=>(String(l.area||"").match(/[市縣](.+?[區鄉鎮市])/)||[])[1]||"";
 let curId="";
+let PRICE={};fetch("data/lvr/pages.json?v="+Math.floor(Date.now()/3600000)).then(r=>r.json()).then(d=>{PRICE=d&&typeof d==="object"?d:{};if(curId){const l=all.find(x=>x.id===curId);if(l)detail(l)}}).catch(()=>{});
+const priceLink=d=>PRICE[d]&&/^price\/[a-z0-9-]+\.html$/.test(PRICE[d])?`<a class="pricelink" href="${PRICE[d]}">📊 看${esc(d)}工業地・廠房實價登錄行情 →</a>`:"";
 function toast(x){const t=document.getElementById("toast");t.textContent=x;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",3500)}
 const copy=t=>{try{return navigator.clipboard.writeText(t).then(()=>true,()=>false)}catch(e){return Promise.resolve(false)}};
 function lineGo(w){copy(msg);toast("已複製物件編號，請在 LINE 貼上傳送");ev("line_click",{where:w||"page",item_id:curId},"Lead",{content_name:msg})}
@@ -75,7 +77,7 @@ function list(){
   $.innerHTML=`<h1>工業廠房・工業用地</h1><div class="chips" id="chips"></div><div class="panel">
    <label>類別：</label><select id="ft"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
    <label>區域：</label><select id="fa"><option value="">不限</option>${areas.map(a=>`<option>${esc(a)}</option>`).join("")}</select>
-   <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><div class="grid" id="grid"></div>${needBlock()}${joinBlock()}`;
+   <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><a class="pricebanner" href="price/"><b>📊 高雄工業地實價行情</b><span>各區工業地、廠房最近成交價與地坪單價，每 10 天更新 →</span></a><div class="grid" id="grid"></div>${needBlock()}${joinBlock()}`;
   ["ft","fa"].forEach(i=>{const e=document.getElementById(i);e.value=F[i==="ft"?"type":"area"];e.onchange=draw});
   const k=document.getElementById("fk");k.value=F.kw;k.oninput=draw;draw();
   document.getElementById("n_go").onclick=needGo;
@@ -99,6 +101,7 @@ function detail(l){
   $.innerHTML=`<a class="back" href="./" onclick="home(event)">← 回物件列表</a><h1>${esc(l.title)}</h1>
   <div class="gal">${(l.photos||[]).map((p,i)=>`<img src="${esc(p)}" ${i?'loading="lazy"':'fetchpriority="high"'} decoding="async" alt="${esc(l.title)}">`).join("")}</div>
   <table>${rows.map(r=>`<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join("")}</table>
+  ${priceLink(dist(l))}
   <p>${String(l.desc||"").split("；").filter(Boolean).map(x=>"・"+esc(x)).join("<br>")}</p>
   ${l.status==="已成交"?"":`<div class="contact"><img src="avatar.jpg" alt="楊紘珉"><div><b>楊紘珉</b><div class="sub">富住通商用不動產｜大型工業地產</div>
    <div>0905-858-141｜0978-133-561</div><div class="btns"><a class="btn line" href="${LINE_URL}" target="_blank" rel="noopener" onclick="lineGo('detail')">LINE 詢問這個物件</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click',{item_id:curId},'Contact')">撥打電話</a></div>
