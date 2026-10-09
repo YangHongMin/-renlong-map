@@ -5,6 +5,7 @@ on:
       - "pptx/**"
       - "scripts/build.py"
       - "data/listings.json"
+      - "data/posts/**"
 concurrency:
   group: build-listings
   cancel-in-progress: false

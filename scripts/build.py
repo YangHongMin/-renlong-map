@@ -179,11 +179,50 @@ def jdump(o):
     return json.dumps(o, ensure_ascii=False).replace("</", "<\\/")
 
 
+def price_disp(l):
+    """顯示用價格：1 億以上的「XXXXX萬」換成「約X.XX億元」，其餘照原文（資料本身不改）。"""
+    raw = str(l.get("price", "") or "").strip()
+    m = re.match(r"^(?:總價)?\s*([\d,]+(?:\.\d+)?)\s*萬", raw)
+    if not m:
+        return raw
+    v = float(m.group(1).replace(",", ""))
+    if v < 10000:
+        return raw
+    yi = f"{round(v / 10000, 2):g}"
+    rest = raw[m.end():].strip()
+    return f"約{yi}億元" + (" " + rest if rest else "")
+
+
+def loc(l):
+    """回傳 (縣市簡稱, 區鄉鎮)，例如 ("高雄", "仁武區")。"""
+    m = re.match(r"(.{2,3}?[市縣])(.{1,4}?[區鄉鎮市])", str(l.get("area", "")))
+    if not m:
+        return "", ""
+    return m.group(1)[:-1], m.group(2)
+
+
+def kind_of(l):
+    return {"大型廠房": "廠房", "小型廠房": "廠房", "土地": "土地"}.get(cat_of(l), "物件")
+
+
+def deal_of(l):
+    t = l.get("title", "")
+    if "租售" in t:
+        return "出售出租"
+    return "出租" if l.get("type") == "租" else "出售"
+
+
+def seo_kw(l):
+    """搜尋用短語，例如「高雄仁武區廠房出售」。"""
+    c, d = loc(l)
+    return f"{c}{d}{kind_of(l)}{deal_of(l)}"
+
+
 def page_html(l):
     E = html.escape
     ph = [p for p in (l.get("photos") or []) if re.fullmatch(r"img/[\w\-/.]+", str(p)) and ".." not in p]
-    t = l["title"] + "｜富住通大型工業地產"
-    meta = [l.get("price", ""), l.get("area", ""), l.get("zoning", "")]
+    t = l["title"] + "｜" + seo_kw(l) + "｜富住通"
+    meta = [price_disp(l), l.get("area", ""), l.get("zoning", "")]
     if l.get("land_ping"): meta.append(f"土地{l['land_ping']}坪")
     if l.get("build_ping"): meta.append(f"建坪{l['build_ping']}坪")
     desc = "｜".join(x for x in meta if x) + "｜洽楊紘珉 0905-858-141"
@@ -198,7 +237,7 @@ def page_html(l):
           "category": cat_of(l) + ("出租" if l.get("type") == "租" else "出售"),
           "provider": {"@type": "RealEstateAgent", "name": "富住通商用不動產 新興店 楊紘珉",
                        "telephone": "+886-905-858-141", "url": SITE}}
-    rows = [("類別", cat_of(l)), ("編號", l["id"]), ("區域", l.get("area", "")), ("價格", l.get("price", "")),
+    rows = [("類別", cat_of(l)), ("編號", l["id"]), ("區域", l.get("area", "")), ("價格", price_disp(l)),
             ("使用分區", l.get("zoning", "")), ("土地坪數", l.get("land_ping", "")),
             ("建物坪數", l.get("build_ping", "")), ("備註", l.get("note", ""))]
     tr = "".join(f"<tr><th>{E(k)}</th><td>{E(str(v))}</td></tr>" for k, v in rows if v)
@@ -225,9 +264,363 @@ def page_html(l):
 <table>{tr}</table>
 <ul>{pts}</ul>
 <p>洽詢：楊紘珉（富住通商用不動產 新興店）0905-858-141｜<a href="https://lin.ee/S6hfHqge">LINE 諮詢</a></p>
+<p>相關物件：{"、".join(f'<a href="../{E(u)}">{E(lab)}</a>' for u, lab in LINKS_OF.get(l["id"], [])) or '<a href="../all.html">全部物件</a>'}</p>
 <p><a href="../?id={l['id']}">查看完整物件頁</a>｜<a href="../all.html">全部物件清單</a></p>
 </body></html>
 """
+
+
+# ---------- 地區／類型專頁（SEO 落地頁）----------
+# 只要某地區或類型有 2 筆以上「上架」物件，就自動產生一頁；少於 2 筆的頁面會自動移除。
+MIN_ITEMS = 2
+SLUG = {
+    "仁武區": "renwu", "大社區": "dashe", "大寮區": "daliao", "岡山區": "gangshan", "路竹區": "luzhu",
+    "鳳山區": "fengshan", "林園區": "linyuan", "大樹區": "dashu", "永安區": "yongan", "鳥松區": "niaosong",
+    "楠梓區": "nanzi", "橋頭區": "qiaotou", "燕巢區": "yanchao", "阿蓮區": "alian", "湖內區": "hunei",
+    "梓官區": "ziguan", "彌陀區": "mituo", "茄萣區": "qieding", "小港區": "xiaogang", "前鎮區": "qianzhen",
+    "三民區": "sanmin", "左營區": "zuoying", "旗山區": "qishan", "美濃區": "meinong", "田寮區": "tianliao",
+    "大林鎮": "dalin", "萬丹鄉": "wandan", "屏東市": "pingtung", "長治鄉": "changzhi", "麟洛鄉": "linluo",
+    "內埔鄉": "neipu", "新園鄉": "xinyuan", "仁德區": "rende", "永康區": "yongkang", "安南區": "annan",
+    "新市區": "xinshi", "善化區": "shanhua", "歸仁區": "guiren", "關廟區": "guanmiao",
+}
+ZONING_NOTE = {
+    "b": "乙種工業區是都市計畫內的工業區分區，主要供公害輕微的工廠及相關設施使用，常見於市區周邊，交通與生活機能通常較方便。",
+    "a": "甲種工業區是都市計畫內的工業區分區，可設置的工廠類別較廣，通常規模較大、適合製造業與重工業使用。",
+    "d": "丁種建築用地是非都市土地中供工廠及相關工業設施建築使用的用地，常見於工業區或產業聚落周邊，取得面積較大的基地相對容易。",
+}
+TYPES = [  # (路徑, 搜尋標題, 簡短標題, 判斷函式, 說明 key)
+    ("type/b-industrial.html", "高雄乙種工業區廠房・乙工用地", "乙種工業區",
+     lambda l: re.search(r"乙種|乙工", l.get("zoning", "") + l.get("title", "")), "b"),
+    ("type/a-industrial.html", "高雄甲種工業區廠房・甲工用地", "甲種工業區",
+     lambda l: re.search(r"甲種工業|甲工", l.get("zoning", "") + l.get("title", "")), "a"),
+    ("type/d-building.html", "丁種建築用地廠房・丁建廠辦", "丁種建築用地",
+     lambda l: re.search(r"丁種|丁建", l.get("zoning", "") + l.get("title", "")), "d"),
+    ("type/large.html", "高雄大型廠房・千坪工業用地", "大型廠房・千坪工業地",
+     lambda l: cat_of(l) == "大型廠房" or _num(l.get("land_ping")) >= 1000, ""),
+    ("type/rent.html", "高雄廠房出租・工業地出租", "廠房出租",
+     lambda l: l.get("type") == "租" or "租" in l.get("title", ""), ""),
+    ("type/land.html", "高雄工業用地・土地出售", "工業用地・土地",
+     lambda l: cat_of(l) == "土地", ""),
+]
+LINKS_OF = {}  # 物件 id -> [(專頁路徑, 專頁短標題)]
+
+
+def _num(s):
+    try:
+        return float(re.sub(r"[^\d.]", "", str(s or "")) or 0)
+    except ValueError:
+        return 0
+
+
+def landing_defs(live):
+    """回傳要產生的專頁清單：[{path, h1, short, items, note, kind}]"""
+    pages, by_d = [], {}
+    for l in live:
+        c, d = loc(l)
+        if d:
+            by_d.setdefault((c, d), []).append(l)
+    for (c, d), items in sorted(by_d.items(), key=lambda x: -len(x[1])):
+        if len(items) < MIN_ITEMS:
+            continue
+        slug = SLUG.get(d) or "d-" + hashlib.md5(d.encode()).hexdigest()[:6]
+        kinds = {kind_of(l) for l in items}
+        noun = "廠房・土地" if kinds >= {"廠房", "土地"} else ("土地" if kinds == {"土地"} else "廠房")
+        has_rent = any(l.get("type") == "租" or "租" in l.get("title", "") for l in items)
+        pages.append({"path": f"area/{slug}.html", "h1": f"{c}{d}{noun}" + ("出售出租" if has_rent else "出售"),
+                      "short": f"{d}{noun}",
+                      "items": items, "note": "", "kind": "area", "place": f"{c}{d}"})
+    for path, h1, short, fn, nk in TYPES:
+        items = [l for l in live if fn(l)]
+        if len(items) >= MIN_ITEMS:
+            pages.append({"path": path, "h1": h1, "short": short, "items": items,
+                          "note": ZONING_NOTE.get(nk, ""), "kind": "type", "place": ""})
+    return pages
+
+
+HEAD_NAV = """<header>
+ <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
+ <nav><a href="../">工業物件</a><a href="../#need">找不到合適的？</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
+</header>"""
+FOOT = """<footer><div class="in">
+ <img src="../logo.png" alt="富住通商用不動產"><br>
+ <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
+ 營業員：楊紘珉｜(114)登字第486430號<br>
+ {links}<br>
+ <span style="opacity:.75">本網站資料僅供參考，實際內容以現場及契約為準</span><br><span style="opacity:.75;font-size:12px">本網站使用 Google Analytics 與 Meta Pixel 蒐集匿名瀏覽統計，用於了解網站使用情形與廣告成效。</span>
+</div></footer>"""
+# 與 app.js 相同的 GA4 / Pixel 設定；管理者本人（is_owner）不計入
+TRACK = """<script>
+(function(){var OWNER=false;try{OWNER=localStorage.getItem("is_owner")==="1"}catch(e){}
+window.ev=function(){};if(OWNER)return;
+window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};
+var gs=document.createElement("script");gs.async=true;gs.src="https://www.googletagmanager.com/gtag/js?id=G-5YXFVRJ2JM";document.head.appendChild(gs);
+gtag("js",new Date());gtag("config","G-5YXFVRJ2JM");
+!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version="2.0";n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,"script","https://connect.facebook.net/en_US/fbevents.js");
+fbq("init","996673046774269");fbq("track","PageView");
+window.ev=function(n){try{gtag("event",n,{page:location.pathname});fbq("track","Lead",{content_name:location.pathname})}catch(e){}};
+})();
+</script>"""
+
+
+def card_html(l):
+    E = html.escape
+    ph = [p for p in (l.get("photos") or []) if re.fullmatch(r"img/[\w\-/.]+", str(p)) and ".." not in p]
+    bg = f' style="background-image:url(\'../{E(ph[0])}\')"' if ph else ""
+    meta = "｜".join(x for x in [l.get("area", ""), l.get("zoning", ""),
+                                 f"土地 {l['land_ping']} 坪" if l.get("land_ping") else "",
+                                 f"建坪 {l['build_ping']} 坪" if l.get("build_ping") else ""] if x)
+    tag = "rent" if l.get("type") == "租" else ""
+    return (f'<a class="card" href="../?id={E(l["id"])}"><div class="ph"{bg}>{"" if ph else "🏭"}'
+            f'<span class="tag {tag}">出{E(l.get("type", "售"))}</span></div><div class="info"><h3>{E(l["title"])}</h3>'
+            f'<div class="meta"><span class="cat">{E(cat_of(l))}</span>{E(meta)}</div>'
+            f'<div class="price">{E(price_disp(l))}</div></div></a>')
+
+
+def range_text(items, key):
+    v = sorted(_num(l.get(key)) for l in items if _num(l.get(key)))
+    if not v:
+        return ""
+    f = lambda x: f"{x:,.0f}"
+    return f"{f(v[0])} 坪" if v[0] == v[-1] else f"{f(v[0])}～{f(v[-1])} 坪"
+
+
+def landing_html(pg, pages):
+    E = html.escape
+    items = pg["items"]
+    url = f"{SITE}/{pg['path']}"
+    zon = []
+    for l in items:
+        for z in re.split(r"[／/、,，]", re.sub(r"\(.*?\)|（.*?）", "", l.get("zoning", ""))):
+            z = z.strip()
+            if z and z not in zon:
+                zon.append(z)
+    land, build = range_text(items, "land_ping"), range_text(items, "build_ping")
+    n_sale = sum(1 for l in items if l.get("type") != "租")
+    n_rent = len(items) - n_sale
+    where = pg["place"] or "高雄及南部"
+    intro = (f"這裡整理了{where}目前上架的 {len(items)} 筆工業物件"
+             f"（出售 {n_sale} 筆" + (f"、出租 {n_rent} 筆" if n_rent else "") + "）"
+             + (f"，土地面積約 {land}" if land else "") + (f"，建物約 {build}" if build else "")
+             + (f"，使用分區包含{'、'.join(zon[:5])}" if zon else "") + "。"
+             "每筆物件都附實景照片與基本資料，點進去可以看詳細內容；"
+             "如果沒有剛好符合的，也可以直接在 LINE 告訴我區域、坪數和預算，我幫您留意。")
+    desc = re.sub(r"。每筆.*$", "。", intro) + "富住通商用不動產 楊紘珉 0905-858-141"
+    others = [p for p in pages if p["path"] != pg["path"]]
+    rel = lambda p: "../" + p["path"]
+    ld = [{"@context": "https://schema.org", "@type": "ItemList", "name": pg["h1"], "url": url,
+           "numberOfItems": len(items),
+           "itemListElement": [{"@type": "ListItem", "position": i + 1, "url": f"{SITE}/p/{l['id']}.html",
+                                "name": l["title"]} for i, l in enumerate(items)]},
+          {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+              {"@type": "ListItem", "position": 1, "name": "工業物件", "item": f"{SITE}/"},
+              {"@type": "ListItem", "position": 2, "name": pg["h1"], "item": url}]}]
+    links = "｜".join(f'<a href="{E(rel(p))}">{E(p["short"])}</a>' for p in others)
+    return f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{E(pg['h1'])}｜{len(items)} 筆物件｜富住通 楊紘珉</title>
+<meta name="description" content="{E(desc)}">
+<link rel="canonical" href="{url}">
+<meta property="og:type" content="website"><meta property="og:title" content="{E(pg['h1'])}｜富住通">
+<meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
+{f'<meta property="og:image" content="{SITE}/{E(items[0]["photos"][0])}">' if items[0].get("photos") else ""}
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<script type="application/ld+json">{jdump(ld)}</script>
+{TRACK}
+</head><body>
+{HEAD_NAV}
+<main>
+<a class="back" href="../">← 全部工業物件</a>
+<h1>{E(pg['h1'])}</h1>
+<p>{E(intro)}</p>
+{f'<p class="meta">{E(pg["note"])}實際可作用途仍以主管機關核定與土地使用分區管制規定為準。</p>' if pg["note"] else ""}
+<div class="grid">{"".join(card_html(l) for l in items)}</div>
+<div class="join"><div><h3>找{E(pg['short'])}？直接告訴我需求</h3><p>加入官方 LINE，告訴我區域、坪數、預算與用途，有符合的物件會第一時間通知您；新上架與降價也會通知。</p>
+<div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 詢問</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
+{f'<h2>其他地區與類型</h2><p>{links}</p>' if links else ""}
+</main>
+{FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
+</body></html>
+"""
+
+
+def write_landing(live):
+    pages = landing_defs(live)
+    LINKS_OF.clear()
+    for pg in pages:
+        for l in pg["items"]:
+            LINKS_OF.setdefault(l["id"], []).append((pg["path"], pg["short"]))
+    keep = set()
+    for pg in pages:
+        f = ROOT / pg["path"]
+        f.parent.mkdir(exist_ok=True)
+        f.write_text(landing_html(pg, pages), "utf-8")
+        keep.add(pg["path"])
+    for d in ("area", "type"):
+        for f in (ROOT / d).glob("*.html") if (ROOT / d).exists() else []:
+            if f"{d}/{f.name}" not in keep:
+                f.unlink()
+    return pages
+
+
+def browse_links(pages, prefix=""):
+    E = html.escape
+    a = [p for p in pages if p["kind"] == "area"]
+    t = [p for p in pages if p["kind"] == "type"]
+    out = []
+    if a:
+        out.append("依地區：" + "｜".join(f'<a href="{prefix}{E(p["path"])}">{E(p["short"])}</a>' for p in a))
+    if t:
+        out.append("依類型：" + "｜".join(f'<a href="{prefix}{E(p["path"])}">{E(p["short"])}</a>' for p in t))
+    if ARTICLES:
+        out.append(f'<a href="{prefix}a/">廠房知識文章</a>')
+    return "<br>".join(out)
+
+
+def update_index(pages):
+    """首頁頁尾（靜態 HTML，搜尋引擎看得到）放專頁連結。"""
+    f = ROOT / "index.html"
+    s = f.read_text("utf-8")
+    block = f"<!--BROWSE-->{browse_links(pages)}<!--/BROWSE-->"
+    if "<!--BROWSE-->" in s:
+        s = re.sub(r"<!--BROWSE-->.*?<!--/BROWSE-->", lambda _: block, s, flags=re.S)
+        f.write_text(s, "utf-8")
+
+
+# ---------- 知識文章（n8n 發完 FB 主題貼文後，寫一個 data/posts/*.json 進來）----------
+POSTS = ROOT / "data" / "posts"
+ARTICLES = []  # [(路徑, 標題, 日期)]，新到舊
+GENERIC_HEAD = {"現場觀察", "軟性推廣", "知識分享", "產業觀察", "選址提醒", "投資觀點", "實務提醒"}
+
+
+def clean_caption(cap):
+    """FB 貼文 → 網站內文：拿掉標題行、LINE/電話行、hashtag 行。回傳 (標題, 段落清單, 延伸閱讀)"""
+    head, paras, news = "", [], ""
+    for ln in str(cap or "").splitlines():
+        t = ln.strip()
+        if not t:
+            paras.append("")
+            continue
+        m = re.fullmatch(r"【(.+?)】", t)
+        if m and not head:
+            head = m.group(1)
+            continue
+        if t.startswith("📩") or "LINE 官方帳號" in t or re.fullmatch(r"(#\S+\s*)+", t):
+            continue
+        if "延伸閱讀" in t:
+            news = re.sub(r"^\W*延伸閱讀[:：]\s*", "", t)
+            continue
+        paras.append(t)
+    blocks, cur = [], []
+    for t in paras + [""]:
+        if t:
+            cur.append(t)
+        elif cur:
+            blocks.append(cur)
+            cur = []
+    return head, blocks, news
+
+
+def article_html(a, path, pages):
+    E = html.escape
+    url = f"{SITE}/{path}"
+    title = a["_title"]
+    body = ""
+    for b in a["_blocks"]:
+        if all(re.match(r"^[✔✅▪•・\-]", x) for x in b):
+            body += "<ul>" + "".join(f"<li>{E(re.sub(r'^[✔✅▪•・-]\s*', '', x))}</li>" for x in b) + "</ul>"
+        else:
+            body += "<p>" + "<br>".join(E(x) for x in b) + "</p>"
+    desc = re.sub(r"\s+", " ", " ".join(" ".join(b) for b in a["_blocks"]))[:110]
+    ld = {"@context": "https://schema.org", "@type": "Article", "headline": title, "datePublished": a["date"],
+          "dateModified": a["date"], "mainEntityOfPage": url, "inLanguage": "zh-Hant",
+          "author": {"@type": "Person", "name": "楊紘珉", "jobTitle": "工業不動產顧問",
+                     "worksFor": {"@type": "RealEstateAgent", "name": "富住通商用不動產 新興店"}},
+          "publisher": {"@type": "Organization", "name": "富住通商用不動產", "logo": {"@type": "ImageObject", "url": f"{SITE}/logo.png"}}}
+    more = "｜".join(f'<a href="../{E(p["path"])}">{E(p["short"])}</a>' for p in pages)
+    return f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{E(title)}｜廠房知識｜富住通 楊紘珉</title>
+<meta name="description" content="{E(desc)}">
+<link rel="canonical" href="{url}">
+<meta property="og:type" content="article"><meta property="og:title" content="{E(title)}">
+<meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<script type="application/ld+json">{jdump(ld)}</script>
+{TRACK}
+</head><body>
+{HEAD_NAV}
+<main class="article">
+<a class="back" href="./">← 廠房知識文章</a>
+<h1>{E(title)}</h1>
+<p class="meta">{E(a["date"])}｜楊紘珉（富住通商用不動產 工業不動產顧問）</p>
+{body}
+{f'<p class="meta">延伸閱讀：{E(a["_news"])}</p>' if a.get("_news") else ""}
+<div class="join"><div><h3>想找廠房、土地，或評估手上的物件？</h3><p>加入官方 LINE，直接告訴我區域、坪數、預算與用途；新物件上架也會第一時間通知您。</p>
+<div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 詢問</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
+{f'<h2>目前的物件</h2><p>{more}</p>' if more else ""}
+</main>
+{FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="./">廠房知識文章</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
+</body></html>
+"""
+
+
+def write_articles(pages):
+    ARTICLES.clear()
+    out = ROOT / "a"
+    posts = []
+    for f in sorted(POSTS.glob("*.json")) if POSTS.exists() else []:
+        try:
+            a = json.loads(f.read_text("utf-8"))
+        except Exception as e:
+            print("POST FAIL", f.name, repr(e))
+            continue
+        if a.get("source") == "template" or a.get("hidden"):
+            continue  # 範本後備的短文不放網站（內容太薄）
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(a.get("date", ""))):
+            continue
+        head, blocks, news = clean_caption(a.get("caption", ""))
+        if sum(len("".join(b)) for b in blocks) < 80:
+            continue
+        a["_title"] = head if head and head not in GENERIC_HEAD else (a.get("topicTitle") or head)
+        a["_blocks"], a["_news"] = blocks, news
+        slug = re.sub(r"[^a-z0-9-]", "", f"{a['date']}-{str(a.get('topicId', '')).lower()}").strip("-")
+        posts.append((f"a/{slug}.html", a))
+    keep = set()
+    if posts:
+        out.mkdir(exist_ok=True)
+    for path, a in posts:
+        (ROOT / path).write_text(article_html(a, path, pages), "utf-8")
+        keep.add(path)
+    if out.exists():
+        for f in out.glob("*.html"):
+            if f.name != "index.html" and f"a/{f.name}" not in keep:
+                f.unlink()
+    posts.sort(key=lambda x: x[1]["date"], reverse=True)
+    ARTICLES.extend((p, a["_title"], a["date"]) for p, a in posts)
+    if posts:
+        E = html.escape
+        lis = "".join(f'<li><a href="../{E(p)}">{E(t)}</a> <span class="meta">{E(d)}</span></li>' for p, t, d in ARTICLES)
+        (out / "index.html").write_text(f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>廠房知識｜工業地產買賣租賃實務文章｜富住通 楊紘珉</title>
+<meta name="description" content="高雄工業不動產顧問楊紘珉整理的廠房、工業用地買賣租賃實務：選址、電力、消防、使用分區與產業投資觀察。">
+<link rel="canonical" href="{SITE}/a/">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+{TRACK}
+</head><body>
+{HEAD_NAV}
+<main class="article"><h1>廠房知識</h1><p>買廠房、租廠房、找工業用地之前，值得先知道的實務重點。每篇都是工業不動產現場常遇到的問題。</p>
+<ul class="alist">{lis}</ul></main>
+{FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
+</body></html>
+""", "utf-8")
+    elif (out / "index.html").exists():
+        (out / "index.html").unlink()
 
 
 def write_share_pages(data):
@@ -235,19 +628,23 @@ def write_share_pages(data):
     pdir.mkdir(exist_ok=True)
     pub = [l for l in data
            if l.get("status") != "待確認" and re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(l.get("id", "")))]
+    if not data:  # 資料為空時不動（防止 listings.json 被清空時誤刪）
+        return
+    pages = write_landing([l for l in pub if l.get("status") == "上架"])
+    write_articles(pages)
     live = set()
     for l in pub:
         live.add(f"{l['id']}.html")
         (pdir / f"{l['id']}.html").write_text(page_html(l), "utf-8")
-    # 清掉不再公開的舊分享頁；資料為空時不動（防止 listings.json 被清空時誤刪）
-    if data:
-        for f in pdir.glob("*.html"):
-            if f.name not in live:
-                f.unlink()
-        write_site_files(pub)
+    # 清掉不再公開的舊分享頁
+    for f in pdir.glob("*.html"):
+        if f.name not in live:
+            f.unlink()
+    update_index(pages)
+    write_site_files(pub, pages)
 
 
-def write_site_files(pub):
+def write_site_files(pub, pages=()):
     E = html.escape
     live = [l for l in pub if l.get("status") == "上架"]
     sec = ""
@@ -255,8 +652,10 @@ def write_site_files(pub):
         items = [l for l in live if cat_of(l) == c]
         if items:
             sec += f"<h2>{c}</h2><ul>" + "".join(
-                f'<li><a href="p/{l["id"]}.html">{E(l["title"])}</a>｜{E(l.get("area",""))}｜{E(l.get("price",""))}</li>'
+                f'<li><a href="p/{l["id"]}.html">{E(l["title"])}</a>｜{E(l.get("area",""))}｜{E(price_disp(l))}</li>'
                 for l in items) + "</ul>"
+    if pages:
+        sec += "<h2>依地區・類型瀏覽</h2><p>" + browse_links(pages) + "</p>"
     (ROOT / "all.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>高雄工業廠房・工業用地出售出租物件總覽｜富住通</title>
@@ -265,7 +664,9 @@ def write_site_files(pub):
 </head><body><h1>工業廠房・工業用地物件總覽</h1>{sec or "<p>目前沒有上架物件</p>"}
 <p><a href="./">回首頁</a>｜洽詢：楊紘珉 0905-858-141｜<a href="https://lin.ee/S6hfHqge">LINE 諮詢</a></p></body></html>
 """, "utf-8")
-    urls = [f"{SITE}/", f"{SITE}/all.html"] + [f"{SITE}/p/{l['id']}.html" for l in live]
+    urls = ([f"{SITE}/", f"{SITE}/all.html"] + [f"{SITE}/{p['path']}" for p in pages]
+            + [f"{SITE}/p/{l['id']}.html" for l in live]
+            + ([f"{SITE}/a/"] + [f"{SITE}/{p}" for p, _, _ in ARTICLES] if ARTICLES else []))
     (ROOT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"<url><loc>{E(u)}</loc></url>\n" for u in urls) + "</urlset>\n", "utf-8")
     (ROOT / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /admin.html\n\nSitemap: {SITE}/sitemap.xml\n", "utf-8")

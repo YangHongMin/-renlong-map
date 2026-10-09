@@ -31,6 +31,8 @@ const needBlock=()=>`<div class="need" id="need"><h3>找不到合適的？告訴
  <label>其他需求<input id="n_m" maxlength="100" placeholder="例如：要天車、貨櫃車可進出" autocomplete="off"></label></div>
  <div class="btns"><button class="btn line" type="button" id="n_go">整理成訊息並開啟 LINE</button></div><div class="nout" id="n_out" style="display:none"></div></div>`;
 const CATS=["大型廠房","小型廠房","土地","其他"];
+// 顯示用價格：1 億以上的「XXXXX萬」換成「約X.XX億元」（與 scripts/build.py 的 price_disp 相同規則）
+const priceOf=l=>{const raw=String(l.price||"").trim(),m=raw.match(/^(?:總價)?\s*([\d,]+(?:\.\d+)?)\s*萬/);if(!m)return raw;const v=parseFloat(m[1].replace(/,/g,""));if(v<10000)return raw;const rest=raw.slice(m[0].length).trim();return "約"+(Math.round(v/100)/100)+"億元"+(rest?" "+rest:"")};
 const catOf=l=>{if(CATS.includes(l.category))return l.category;const b=parseFloat(String(l.build_ping||"").replace(/,/g,""))||0,d=parseFloat(String(l.land_ping||"").replace(/,/g,""))||0,t=String(l.title||"")+String(l.zoning||"");
   if(!b)return d?"土地":"其他";if(!/廠|倉|工業|丁種|乙種|甲種/.test(t))return "其他";return b>=500?"大型廠房":"小型廠房"};
 let all=[],F={type:"",area:"",kw:"",cat:""},msg="我想詢問工業物件";
@@ -87,11 +89,11 @@ function draw(){
   const rows=vis().filter(l=>(!F.type||l.type===F.type)&&(!F.cat||catOf(l)===F.cat)&&(!F.area||dist(l)===F.area)&&(!F.kw||[l.title,l.area,l.zoning,l.desc,l.note].join(" ").includes(F.kw)));
   document.getElementById("grid").innerHTML=rows.map(l=>{const p=(l.photos||[])[0];const done=l.status==="已成交";
    return `<a class="card" href="?id=${esc(l.id)}" onclick="go(event,'${esc(l.id)}')"><div class="ph" style="${p?`background-image:url('${esc(p)}')`:""}">${p?"":"🏭"}<span class="tag ${done?"done":l.type==="租"?"rent":""}">${done?"已成交":"出"+esc(l.type)}</span></div>
-   <div class="info"><h3>${esc(l.title)}</h3><div class="meta"><span class="cat">${esc(catOf(l))}</span>${esc([l.area,l.zoning,l.land_ping?"土地 "+l.land_ping+" 坪":"",l.build_ping?"建坪 "+l.build_ping+" 坪":""].filter(Boolean).join("｜"))}</div><div class="price">${esc(l.price)}</div></div></a>`}).join("")||"目前沒有符合的物件";
+   <div class="info"><h3>${esc(l.title)}</h3><div class="meta"><span class="cat">${esc(catOf(l))}</span>${esc([l.area,l.zoning,l.land_ping?"土地 "+l.land_ping+" 坪":"",l.build_ping?"建坪 "+l.build_ping+" 坪":""].filter(Boolean).join("｜"))}</div><div class="price">${esc(priceOf(l))}</div></div></a>`}).join("")||"目前沒有符合的物件";
 }
 function detail(l){
   document.title=String(l.title||"")+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;
-  const rows=[["編號",l.id],["類別",catOf(l)],["區域",l.area],["價格",l.price],["使用分區",l.zoning],["基地面積",l.land_ping?l.land_ping+" 坪":""],["建物面積",l.build_ping?l.build_ping+" 坪":""],["備註",l.note]].filter(r=>r[1]);
+  const rows=[["編號",l.id],["類別",catOf(l)],["區域",l.area],["價格",priceOf(l)],["使用分區",l.zoning],["基地面積",l.land_ping?l.land_ping+" 坪":""],["建物面積",l.build_ping?l.build_ping+" 坪":""],["備註",l.note]].filter(r=>r[1]);
   $.innerHTML=`<a class="back" href="./" onclick="home(event)">← 回物件列表</a><h1>${esc(l.title)}</h1>
   <div class="gal">${(l.photos||[]).map(p=>`<img src="${esc(p)}" loading="lazy" alt="${esc(l.title)}">`).join("")}</div>
   <table>${rows.map(r=>`<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join("")}</table>
