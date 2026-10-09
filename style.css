@@ -70,3 +70,5 @@ footer b{color:#fff}footer a{color:#fff}
  .fab{right:10px;bottom:14px;gap:8px}.fab a{width:46px;height:46px}
  .chips button{padding:5px 12px;font-size:13px}
 }
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0}.stats div{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 14px}.stats span{display:block;color:var(--mute);font-size:13px}.stats b{font-size:18px;color:var(--navy)}
+.tbl{overflow-x:auto;margin:12px 0}table.deals{border-collapse:collapse;width:100%;background:#fff;font-size:14px;white-space:nowrap}table.deals th,table.deals td{border-bottom:1px solid var(--line);padding:7px 9px;text-align:left}table.deals th{background:#eef2f8;color:var(--navy)}

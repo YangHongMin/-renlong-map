@@ -1,4 +1,4 @@
-import io, os, re, sys, json, base64, hashlib, shutil, pathlib, html
+import io, os, re, sys, json, base64, hashlib, shutil, pathlib, html, datetime
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from PIL import Image, ImageOps
@@ -461,6 +461,7 @@ def landing_html(pg, pages):
 <div class="grid">{"".join(card_html(l) for l in items)}</div>
 <div class="join"><div><h3>找{E(pg['short'])}？直接告訴我需求</h3><p>加入官方 LINE，告訴我區域、坪數、預算與用途，有符合的物件會第一時間通知您；新上架與降價也會通知。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 詢問</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
+{(lambda d: f'<p>📊 <a href="../{E(PRICE_PAGES[d])}">看{E(d)}工業地・廠房實價登錄行情</a></p>' if d in PRICE_PAGES else "")(re.sub(r"^.{2}", "", pg["place"])) if pg["kind"] == "area" else ""}
 {f'<h2>其他地區與類型</h2><p>{links}</p>' if links else ""}
 </main>
 {FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
@@ -496,8 +497,13 @@ def browse_links(pages, prefix=""):
         out.append("依地區：" + "｜".join(f'<a href="{prefix}{E(p["path"])}">{E(p["short"])}</a>' for p in a))
     if t:
         out.append("依類型：" + "｜".join(f'<a href="{prefix}{E(p["path"])}">{E(p["short"])}</a>' for p in t))
+    extra = []
+    if PRICE_PAGES:
+        extra.append(f'<a href="{prefix}price/">高雄工業地實價行情</a>')
     if ARTICLES:
-        out.append(f'<a href="{prefix}a/">廠房知識文章</a>')
+        extra.append(f'<a href="{prefix}a/">廠房知識文章</a>')
+    if extra:
+        out.append("｜".join(extra))
     return "<br>".join(out)
 
 
@@ -726,6 +732,160 @@ def write_articles(pages):
         (out / "index.html").unlink()
 
 
+# ---------- 實價登錄行情頁（資料由 scripts/lvr.py 從內政部開放資料下載）----------
+LVR = ROOT / "data" / "lvr" / "kaohsiung_industrial.json"
+PRICE_PAGES = {}  # 區名 -> 路徑
+MIN_DEALS = 5
+
+
+def _wan(v):
+    return f"約{v / 10000:.2f}億" if v >= 10000 else f"{v:,.0f}萬"
+
+
+def _zone(z):
+    z = re.sub(r'^都市：其他:', '', z or '')
+    return {'工': '工業區', '農': '農業區', '': '—'}.get(z, z)
+
+
+def _bp(d):
+    return f"{d['build_ping']:,.0f}" if d.get('build_ping') else '—'
+
+
+def _deal_unit(d):
+    return round(d["total_wan"] / d["land_ping"], 1) if d.get("land_ping") else 0
+
+
+def _median(v):
+    v = sorted(v)
+    n = len(v)
+    return 0 if not n else (v[n // 2] if n % 2 else round((v[n // 2 - 1] + v[n // 2]) / 2, 1))
+
+
+def _stats(deals, since):
+    rec = [d for d in deals if not d["special"] and d["date"] >= since]
+    land = [_deal_unit(d) for d in rec if d["kind"] == "土地" and _deal_unit(d)]
+    bld = [_deal_unit(d) for d in rec if d["kind"] != "土地" and _deal_unit(d)]
+    return len(rec), (_median(land), len(land)), (_median(bld), len(bld))
+
+
+def _stat_text(v, n):
+    if not n:
+        return "近一年無成交"
+    return f"{v:g} 萬／地坪（{n} 筆）" + ("，筆數少僅供參考" if n < 3 else "")
+
+
+def price_page_html(dist, deals, upd, pages, listings):
+    E = html.escape
+    path = PRICE_PAGES[dist]
+    url = f"{SITE}/{path}"
+    since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
+    n, (lm, ln), (bm, bn) = _stats(deals, since)
+    ok = [d for d in deals if not d["special"]]
+    sp = len(deals) - len(ok)
+    rows = "".join(
+        f"<tr><td>{E(d['date'][:7])}</td><td>{E(d['road'] or '—')}</td><td>{'土地' if d['kind'] == '土地' else '房地'}</td>"
+        f"<td>{E(_zone(d['zone']))}</td><td>{d['land_ping']:,.0f}</td>"
+        f"<td>{_bp(d)}</td>"
+        f"<td>{E(_wan(d['total_wan']))}</td><td><b>{_deal_unit(d):g}</b></td></tr>"
+        for d in ok[:40])
+    area = next((p for p in pages if p["kind"] == "area" and p["place"].endswith(dist)), None)
+    mine = [l for l in listings if loc(l)[1] == dist]
+    mine_html = ""
+    if area:
+        mine_html = f'<p>👉 目前我在{E(dist)}的物件：<a href="../{E(area["path"])}">{E(area["h1"])}</a></p>'
+    elif mine:
+        mine_html = "<p>👉 目前我在" + E(dist) + "的物件：" + "、".join(
+            f'<a href="../p/{E(l["id"])}.html">{E(l["title"])}</a>' for l in mine) + "</p>"
+    others = "｜".join(f'<a href="../{E(p)}">{E(k)}</a>' for k, p in PRICE_PAGES.items() if k != dist)
+    title = f"高雄{dist}工業地・廠房實價登錄行情"
+    desc = (f"{dist}近一年工業類成交 {n} 筆。土地：{_stat_text(lm, ln)}；廠房（房地）：{_stat_text(bm, bn)}。"
+            f"資料來源內政部實價登錄，{upd} 更新。")
+    ld = [{"@context": "https://schema.org", "@type": "WebPage", "name": title, "url": url, "dateModified": upd,
+           "description": desc},
+          {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+              {"@type": "ListItem", "position": 1, "name": "工業物件", "item": f"{SITE}/"},
+              {"@type": "ListItem", "position": 2, "name": "實價登錄行情", "item": f"{SITE}/price/"},
+              {"@type": "ListItem", "position": 3, "name": title, "item": url}]}]
+    return f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{E(title)}｜{E(upd[:7])} 更新｜富住通 楊紘珉</title>
+<meta name="description" content="{E(desc)}">
+<link rel="canonical" href="{url}">
+<meta property="og:type" content="website"><meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<script type="application/ld+json">{jdump(ld)}</script>
+{TRACK}
+</head><body>
+{HEAD_NAV}
+<main>
+<a class="back" href="./">← 高雄工業地產實價行情</a>
+<h1>{E(title)}</h1>
+<div class="stats"><div><span>近一年成交</span><b>{n} 筆</b></div><div><span>土地 地坪單價中位數</span><b>{E(_stat_text(lm, ln))}</b></div><div><span>廠房（房地） 地坪單價中位數</span><b>{E(_stat_text(bm, bn))}</b></div></div>
+<p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數（房地含建物價值），單位：萬元。已排除政府標售、親友等特殊交易 {sp} 筆。位置只顯示到路名，土地交易不顯示位置。</p>
+{mine_html}
+<div class="tbl"><table class="deals"><thead><tr><th>年月</th><th>位置</th><th>標的</th><th>分區</th><th>土地坪</th><th>建坪</th><th>總價</th><th>地坪單價</th></tr></thead><tbody>{rows}</tbody></table></div>
+<div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>實價登錄只看得到成交價，看不到屋況、面寬、電力和路寬。加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
+<div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
+{f'<h2>其他地區實價行情</h2><p>{others}</p>' if others else ""}
+</main>
+{FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="./">實價行情總覽</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
+</body></html>
+"""
+
+
+def write_price_pages(pages, live):
+    PRICE_PAGES.clear()
+    out = ROOT / "price"
+    if not LVR.exists():
+        return
+    data = json.loads(LVR.read_text("utf-8"))
+    upd = data.get("updated") or datetime.date.today().isoformat()
+    by = {}
+    for d in data.get("deals", []):
+        by.setdefault(d["dist"], []).append(d)
+    dists = [k for k, v in sorted(by.items(), key=lambda x: -len(x[1]))
+             if k and sum(1 for d in v if not d["special"]) >= MIN_DEALS]
+    for k in dists:
+        PRICE_PAGES[k] = f"price/{SLUG.get(k) or 'd-' + hashlib.md5(k.encode()).hexdigest()[:6]}.html"
+    out.mkdir(exist_ok=True)
+    keep = set()
+    for k in dists:
+        (ROOT / PRICE_PAGES[k]).write_text(price_page_html(k, by[k], upd, pages, live), "utf-8")
+        keep.add(PRICE_PAGES[k])
+    for f in out.glob("*.html"):
+        if f.name != "index.html" and f"price/{f.name}" not in keep:
+            f.unlink()
+    E = html.escape
+    since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
+    trs = ""
+    for k in dists:
+        n, (lm, ln), (bm, bn) = _stats(by[k], since)
+        trs += (f'<tr><td><a href="../{E(PRICE_PAGES[k])}">{E(k)}</a></td><td>{n}</td>'
+                f'<td>{f"{lm:g}" if ln else "—"}</td><td>{f"{bm:g}" if bn else "—"}</td></tr>')
+    (out / "index.html").write_text(f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>高雄工業地產實價登錄行情｜各區工業地・廠房成交價｜{E(upd[:7])} 更新</title>
+<meta name="description" content="高雄各區工業區、丁種建築用地、廠房的實價登錄成交行情，依地區整理地坪單價中位數與近期成交。資料來源內政部實價登錄，{E(upd)} 更新。">
+<link rel="canonical" href="{SITE}/price/">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+{TRACK}
+</head><body>
+{HEAD_NAV}
+<main><h1>高雄工業地產實價登錄行情</h1>
+<p>整理高雄各區工業區、丁種建築用地與廠房的實價登錄成交，每 10 天自動更新。點地區看近期每一筆成交。</p>
+<div class="tbl"><table class="deals"><thead><tr><th>地區</th><th>近一年成交筆數</th><th>土地中位數<br>（萬／地坪）</th><th>廠房中位數<br>（萬／地坪）</th></tr></thead><tbody>{trs}</tbody></table></div>
+<p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數（房地含建物價值），已排除政府標售、親友等特殊交易。</p>
+<div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
+<div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
+</main>
+{FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
+</body></html>
+""", "utf-8")
+
+
 def write_share_pages(data):
     pdir = ROOT / "p"
     pdir.mkdir(exist_ok=True)
@@ -733,8 +893,11 @@ def write_share_pages(data):
            if l.get("status") != "待確認" and re.fullmatch(r"[A-Za-z0-9_-]{1,40}", str(l.get("id", "")))]
     if not data:  # 資料為空時不動（防止 listings.json 被清空時誤刪）
         return
-    pages = write_landing([l for l in pub if l.get("status") == "上架"])
+    live_l = [l for l in pub if l.get("status") == "上架"]
+    write_price_pages([], live_l)  # 先算出行情頁路徑，地區專頁才能連過去
+    pages = write_landing(live_l)
     write_articles(pages)
+    write_price_pages(pages, live_l)
     live = set()
     for l in pub:
         live.add(f"{l['id']}.html")
@@ -769,7 +932,8 @@ def write_site_files(pub, pages=()):
 """, "utf-8")
     urls = ([f"{SITE}/", f"{SITE}/all.html"] + [f"{SITE}/{p['path']}" for p in pages]
             + [f"{SITE}/p/{l['id']}.html" for l in live]
-            + ([f"{SITE}/a/"] + [f"{SITE}/{p}" for p, _, _ in ARTICLES] if ARTICLES else []))
+            + ([f"{SITE}/a/"] + [f"{SITE}/{p}" for p, _, _ in ARTICLES] if ARTICLES else [])
+            + ([f"{SITE}/price/"] + [f"{SITE}/{p}" for p in PRICE_PAGES.values()] if PRICE_PAGES else []))
     (ROOT / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "".join(f"<url><loc>{E(u)}</loc></url>\n" for u in urls) + "</urlset>\n", "utf-8")
     (ROOT / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /admin.html\n\nSitemap: {SITE}/sitemap.xml\n", "utf-8")
