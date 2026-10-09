@@ -540,6 +540,8 @@ def clean_caption(cap):
         if "延伸閱讀" in t:
             news = re.sub(r"^\W*延伸閱讀[:：]\s*", "", t)
             continue
+        if t.startswith("📰"):  # 週報的「新聞來源」行，網站改列出連結
+            continue
         paras.append(t)
     blocks, cur = [], []
     for t in paras + [""]:
@@ -549,6 +551,21 @@ def clean_caption(cap):
             blocks.append(cur)
             cur = []
     return head, blocks, news
+
+
+def _links_html(txt):
+    """週報的新聞連結（格式：「1. 標題」換行「網址」）"""
+    E = html.escape
+    lines = [x.strip() for x in str(txt or "").splitlines() if x.strip()]
+    items, title = [], ""
+    for x in lines:
+        if re.match(r"^https?://", x):
+            if title:
+                items.append(f'<li><a href="{E(x)}" target="_blank" rel="noopener nofollow">{E(title)}</a></li>')
+            title = ""
+        else:
+            title = re.sub(r"^\d+\.\s*", "", x)
+    return f'<h2>本週新聞來源</h2><ul class="alist">{"".join(items)}</ul>' if items else ""
 
 
 def article_html(a, path, pages):
@@ -588,6 +605,7 @@ def article_html(a, path, pages):
 <p class="meta">{E(a["date"])}｜楊紘珉（富住通商用不動產 工業不動產顧問）</p>
 {body}
 {f'<p class="meta">延伸閱讀：{E(a["_news"])}</p>' if a.get("_news") else ""}
+{_links_html(a.get("links", ""))}
 <div class="join"><div><h3>想找廠房、土地，或評估手上的物件？</h3><p>加入官方 LINE，直接告訴我區域、坪數、預算與用途；新物件上架也會第一時間通知您。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 詢問</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
 {f'<h2>目前的物件</h2><p>{more}</p>' if more else ""}
