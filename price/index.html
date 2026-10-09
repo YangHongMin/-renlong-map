@@ -36,7 +36,7 @@ Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){r
  var br=[1,2,3,4].map(function(i){return vals[Math.floor(vals.length*i/5)]});
  function col(v){if(!v)return NODATA;for(var i=0;i<4;i++)if(v<br[i])return RAMP[i];return RAMP[4]}
  var map=L.map("pmap",{scrollWheelZoom:false,attributionControl:true});
- L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:16,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>｜行政區界：內政部'}).addTo(map);
+ L.tileLayer("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}",{maxZoom:17,opacity:.55,attribution:'底圖：<a href="https://maps.nlsc.gov.tw/" target="_blank" rel="noopener">內政部國土測繪中心</a>｜行政區界：內政部'}).addTo(map);
  var focus=[];
  var lay=L.geoJSON(geo,{style:function(f){var d=M[f.properties.name]||{};return {color:"#ffffff",weight:1.5,fillColor:col(d.all),fillOpacity:d.all?.78:.45}},
   onEachFeature:function(f,l){var k=f.properties.name,d=M[k]||{};if(d.n||(d.mine&&d.mine.length))focus.push(l);
