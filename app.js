@@ -2,6 +2,8 @@ const OWNER=(()=>{try{return localStorage.getItem("is_owner")==="1"}catch(e){ret
 const GA_ID="G-5YXFVRJ2JM",PIXEL_ID="996673046774269";
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const okId=s=>typeof s==="string"&&/^[A-Za-z0-9_-]{1,40}$/.test(s);
+const thumb=p=>p.replace(/[^\/]+$/,m=>"t_"+m); // 列表用小圖（build.py 自動產生）；找不到就退回原圖
+document.addEventListener("error",e=>{const t=e.target;if(t&&t.tagName==="IMG"&&t.dataset&&t.dataset.o&&t.src.indexOf("/t_")>-1)t.src=t.dataset.o},true);
 const okImg=s=>typeof s==="string"&&/^img\/[A-Za-z0-9_\-\/.]+$/.test(s)&&s.indexOf("..")<0;
 const sanitize=d=>(Array.isArray(d)?d:[]).filter(l=>l&&typeof l==="object"&&okId(l.id)).map(l=>({...l,photos:(Array.isArray(l.photos)?l.photos:[]).filter(okImg)}));
 window.dataLayer=window.dataLayer||[];
@@ -81,21 +83,21 @@ function list(){
 }
 function chips(){
   const v=vis(),n=c=>c?v.filter(l=>catOf(l)===c).length:v.length;
-  document.getElementById("chips").innerHTML=["",...CATS].map(c=>`<button type="button" class="${F.cat===c?"on":""}" data-c="${esc(c)}">${c||"全部"}（${n(c)}）</button>`).join("");
+  document.getElementById("chips").innerHTML=["",...CATS].filter(c=>!c||n(c)>0||F.cat===c).map(c=>`<button type="button" class="${F.cat===c?"on":""}" data-c="${esc(c)}">${c||"全部"}（${n(c)}）</button>`).join("");
   document.querySelectorAll("#chips button").forEach(b=>b.onclick=()=>{F.cat=b.dataset.c;draw()});
 }
 function draw(){
   chips();F.type=document.getElementById("ft").value;F.area=document.getElementById("fa").value;F.kw=document.getElementById("fk").value.trim();
   const rows=vis().filter(l=>(!F.type||l.type===F.type)&&(!F.cat||catOf(l)===F.cat)&&(!F.area||dist(l)===F.area)&&(!F.kw||[l.title,l.area,l.zoning,l.desc,l.note].join(" ").includes(F.kw)));
-  document.getElementById("grid").innerHTML=rows.map(l=>{const p=(l.photos||[])[0];const done=l.status==="已成交";
-   return `<a class="card" href="?id=${esc(l.id)}" onclick="go(event,'${esc(l.id)}')"><div class="ph" style="${p?`background-image:url('${esc(p)}')`:""}">${p?"":"🏭"}<span class="tag ${done?"done":l.type==="租"?"rent":""}">${done?"已成交":"出"+esc(l.type)}</span></div>
+  document.getElementById("grid").innerHTML=rows.map((l,n)=>{const p=(l.photos||[])[0];const done=l.status==="已成交";
+   return `<a class="card" href="?id=${esc(l.id)}" onclick="go(event,'${esc(l.id)}')"><div class="ph">${p?`<img class="th" src="${esc(thumb(p))}" data-o="${esc(p)}" alt="" width="480" height="360" ${n<2?'fetchpriority="high"':'loading="lazy"'} decoding="async">`:"🏭"}<span class="tag ${done?"done":l.type==="租"?"rent":""}">${done?"已成交":"出"+esc(l.type)}</span></div>
    <div class="info"><h3>${esc(l.title)}</h3><div class="meta"><span class="cat">${esc(catOf(l))}</span>${esc([l.area,l.zoning,l.land_ping?"土地 "+l.land_ping+" 坪":"",l.build_ping?"建坪 "+l.build_ping+" 坪":""].filter(Boolean).join("｜"))}</div><div class="price">${esc(priceOf(l))}</div></div></a>`}).join("")||"目前沒有符合的物件";
 }
 function detail(l){
   document.title=String(l.title||"")+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;
   const rows=[["編號",l.id],["類別",catOf(l)],["區域",l.area],["價格",priceOf(l)],["使用分區",l.zoning],["基地面積",l.land_ping?l.land_ping+" 坪":""],["建物面積",l.build_ping?l.build_ping+" 坪":""],["備註",l.note]].filter(r=>r[1]);
   $.innerHTML=`<a class="back" href="./" onclick="home(event)">← 回物件列表</a><h1>${esc(l.title)}</h1>
-  <div class="gal">${(l.photos||[]).map(p=>`<img src="${esc(p)}" loading="lazy" alt="${esc(l.title)}">`).join("")}</div>
+  <div class="gal">${(l.photos||[]).map((p,i)=>`<img src="${esc(p)}" ${i?'loading="lazy"':'fetchpriority="high"'} decoding="async" alt="${esc(l.title)}">`).join("")}</div>
   <table>${rows.map(r=>`<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join("")}</table>
   <p>${String(l.desc||"").split("；").filter(Boolean).map(x=>"・"+esc(x)).join("<br>")}</p>
   ${l.status==="已成交"?"":`<div class="contact"><img src="avatar.jpg" alt="楊紘珉"><div><b>楊紘珉</b><div class="sub">富住通商用不動產｜大型工業地產</div>

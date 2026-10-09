@@ -163,7 +163,30 @@ def save_photos(pid, cands, ids):
     return paths
 
 
+def make_thumbs(data):
+    """列表用的小圖 img/ID/t_檔名：缺的就補，沒有對應照片的就清掉。"""
+    for l in data:
+        pid = str(l.get("id", ""))
+        d = ROOT / "img" / pid
+        if not d.is_dir():
+            continue
+        keep = set()
+        for p in l.get("photos") or []:
+            src = ROOT / p
+            if not src.is_file() or src.parent != d:
+                continue
+            t = d / ("t_" + src.name)
+            keep.add(t.name)
+            if not t.exists():
+                im = ImageOps.exif_transpose(Image.open(src)).convert("RGB")
+                im.thumbnail((480, 480))
+                im.save(t, "JPEG", quality=72, optimize=True)
+        for t in d.glob("t_*"):
+            if t.name not in keep:
+                t.unlink()
+
 def cat_of(l):
+
     if l.get("category") in CATS:
         return l["category"]
     num = lambda k: float(re.sub(r"[^\d.]", "", str(l.get(k, ""))) or 0)
@@ -713,6 +736,7 @@ def main():
     f.write_text(json.dumps(data, ensure_ascii=False, indent=2), "utf-8")
     if not f.exists() or old_f.exists():
         old_f.unlink(missing_ok=True)
+    make_thumbs(data)
     write_share_pages(data)
     if failed:
         sys.exit(1)
