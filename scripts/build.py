@@ -791,7 +791,7 @@ def _median(v):
 
 
 def _stats(deals, since):
-    rec = [d for d in deals if not d["special"] and d["date"] >= since]
+    rec = [d for d in deals if not _special(d) and d["date"] >= since]
     land = [_deal_unit(d) for d in rec if d["kind"] == "土地" and _deal_unit(d)]
     bld = [_deal_unit(d) for d in rec if d["kind"] != "土地" and _deal_unit(d)]
     return len(rec), (_median(land), len(land)), (_median(bld), len(bld))
@@ -803,20 +803,81 @@ def _stat_text(v, n):
     return f"{v:g} 萬／地坪（{n} 筆）" + ("，筆數少僅供參考" if n < 3 else "")
 
 
+# ---------- 實價登錄備註解析：特殊交易、土地建物分開計價 ----------
+HARD = [  # 會讓價格失真的交易，不列入中位數與圖表（表格仍列出並標示）
+    ("親友／特殊關係", r"親友|特殊關係|關係人|二親等"),
+    ("政府標售／承購", r"政府機關標讓售|協議價購|水利地承購|承租轉承購|向政府機關"),
+    ("含公設保留地", r"公共設施保留地"),
+    ("畸零地", r"畸零地"),
+    ("地上權", r"地上權"),
+    ("含租約", r"含租約|帶租約"),
+    ("土地建物分件登記", r"分件登記"),
+    ("其他特殊", r"債權債務|急買急賣|瑕疵|凶宅|無償贈與"),
+]
+SOFT = [("含增建", r"增建|未登記建物|夾層|頂樓加蓋|陽台外推"), ("含設備", r"傢俱|設備|機電")]
+
+
+def _amt(note, label):
+    """從備註抓「土地：1,234萬5,678元」這類金額，回傳萬元；抓不到回傳 None"""
+    m = re.search(label + r"[^0-9]{0,12}?([\d,]+(?:\.\d+)?)\s*(萬)?\s*(?:([\d,]+)\s*元)?", note)
+    if not m:
+        return None
+    a = float(m.group(1).replace(",", ""))
+    if m.group(2):
+        return a + (float(m.group(3).replace(",", "")) / 10000 if m.group(3) else 0)
+    return a / 10000 if a >= 100000 else None  # 只有數字沒有「萬」，視為元
+
+
+def note_info(d):
+    if "_ni" in d:
+        return d["_ni"]
+    n = d.get("note", "") or ""
+    hard = [t for t, r in HARD if re.search(r, n)]
+    soft = [t for t, r in SOFT if re.search(r, n)]
+    land_w, bld_w = _amt(n, r"土地"), _amt(n, r"(?:建物|房屋)")
+    split = None
+    if land_w and bld_w and d.get("total_wan") and abs(land_w + bld_w - d["total_wan"]) <= d["total_wan"] * 0.15:
+        split = {"land": round(land_w / d["land_ping"], 1) if d.get("land_ping") else None,
+                 "bld": round(bld_w / d["build_ping"], 1) if d.get("build_ping") else None}
+    d["_ni"] = {"hard": hard, "soft": soft, "split": split, "special": bool(hard) or (d.get("special") and not soft)}
+    return d["_ni"]
+
+
+def _special(d):
+    return note_info(d)["special"]
+
+
+def _tags_html(d):
+    E = html.escape
+    ni = note_info(d)
+    out = [f'<span class="tg sp">{E(t)}</span>' for t in ni["hard"]]
+    if ni["special"] and not ni["hard"]:
+        out.append('<span class="tg sp">特殊交易</span>')
+    if ni["split"]:
+        parts = []
+        if ni["split"]["land"]:
+            parts.append(f'土地 {ni["split"]["land"]:g}')
+        if ni["split"]["bld"]:
+            parts.append(f'建物 {ni["split"]["bld"]:g}')
+        out.append(f'<span class="tg sv">分開計價：{"、".join(parts)} 萬／坪</span>')
+    out += [f'<span class="tg">{E(t)}</span>' for t in ni["soft"]]
+    return "".join(out) or "—"
+
+
 def price_page_html(dist, deals, upd, pages, listings):
     E = html.escape
     path = PRICE_PAGES[dist]
     url = f"{SITE}/{path}"
     since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
     n, (lm, ln), (bm, bn) = _stats(deals, since)
-    ok = [d for d in deals if not d["special"]]
+    ok = [d for d in deals if not _special(d)]
     sp = len(deals) - len(ok)
     rows = "".join(
-        f"<tr><td>{E(d['date'][:7])}</td><td>{E(d['road'] or '—')}</td><td>{'土地' if d['kind'] == '土地' else '房地'}</td>"
+        f"<tr{' class=\"spr\"' if _special(d) else ''}><td>{E(d['date'][:7])}</td><td>{E(d['road'] or '—')}</td><td>{'土地' if d['kind'] == '土地' else '房地'}</td>"
         f"<td>{E(_zone(d['zone']))}</td><td>{d['land_ping']:,.0f}</td>"
         f"<td>{_bp(d)}</td>"
-        f"<td>{E(_wan(d['total_wan']))}</td><td><b>{_deal_unit(d):g}</b></td><td>{_bunit(d)}</td></tr>"
-        for d in ok[:40])
+        f"<td>{E(_wan(d['total_wan']))}</td><td><b>{(f"{_deal_unit(d):g}" if _deal_unit(d) else "—")}</b></td><td>{_bunit(d)}</td><td class=\"tgs\">{_tags_html(d)}</td></tr>"
+        for d in deals[:50])
     area = next((p for p in pages if p["kind"] == "area" and p["place"].endswith(dist)), None)
     mine = [l for l in listings if loc(l)[1] == dist]
     mine_html = ""
@@ -852,12 +913,12 @@ def price_page_html(dist, deals, upd, pages, listings):
 <a class="back" href="./">← 高雄工業地產實價行情</a>
 <h1>{E(title)}</h1>
 <div class="stats"><div><span>近一年成交</span><b>{n} 筆</b></div><div><span>土地 地坪單價中位數</span><b>{E(_stat_text(lm, ln))}</b></div><div><span>廠房（房地） 地坪單價中位數</span><b>{E(_stat_text(bm, bn))}</b></div></div>
-<p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數，建坪單價＝總價÷建物坪數（兩者都含土地與建物價值，廠房小、土地大時建坪單價會偏高），單位：萬元。已排除政府標售、親友等特殊交易 {sp} 筆。位置只顯示到路名，土地交易不顯示位置。</p>
+<p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數，建坪單價＝總價÷建物坪數（兩者都含土地與建物價值，廠房小、土地大時建坪單價會偏高），單位：萬元。灰色列是特殊交易（親友、政府標售、含公設保留地、含租約等，依實價登錄備註判斷），共 {sp} 筆，不列入中位數與圖表；備註寫明土地、建物分開計價的，另外標出各自的每坪單價。位置只顯示到路名，土地交易不顯示位置。</p>
 {mine_html}
 {trend_svg(deals)}
 {scatter_svg(deals)}
 <h2>近期成交明細</h2>
-<div class="tbl"><table class="deals"><thead><tr><th>年月</th><th>位置</th><th>標的</th><th>分區</th><th>土地坪</th><th>建坪</th><th>總價</th><th>地坪單價</th><th>建坪單價</th></tr></thead><tbody>{rows}</tbody></table></div>
+<div class="tbl"><table class="deals"><thead><tr><th>年月</th><th>位置</th><th>標的</th><th>分區</th><th>土地坪</th><th>建坪</th><th>總價</th><th>地坪單價</th><th>建坪單價</th><th>備註</th></tr></thead><tbody>{rows}</tbody></table></div>
 <div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>實價登錄只看得到成交價，看不到屋況、面寬、電力和路寬。加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
 {f'<h2>其他地區實價行情</h2><p>{others}</p>' if others else ""}
@@ -877,7 +938,7 @@ def _half(d):
 
 
 def trend_svg(deals):
-    ok = [d for d in deals if not d["special"] and _deal_unit(d)]
+    ok = [d for d in deals if not _special(d) and _deal_unit(d)]
     if not ok:
         return ""
     b = {}
@@ -910,7 +971,7 @@ def trend_svg(deals):
 
 def scatter_svg(deals):
     import math
-    ok = [d for d in deals if not d["special"] and _deal_unit(d) >= 3 and d.get("land_ping", 0) >= 10]  # 單價過低多為持分、道路用地
+    ok = [d for d in deals if not _special(d) and _deal_unit(d) >= 3 and d.get("land_ping", 0) >= 10]  # 單價過低多為持分、道路用地
     if len(ok) < 5:
         return ""
     W, H, L, R, T, B = 640, 300, 52, 16, 20, 44
@@ -953,7 +1014,7 @@ def map_block(by, upd, live):
     since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
     m = {}
     for k, v in by.items():
-        rec = [d for d in v if not d["special"] and d["date"] >= since and _deal_unit(d)]
+        rec = [d for d in v if not _special(d) and d["date"] >= since and _deal_unit(d)]
         n, (lm, ln), (bm, bn) = _stats(v, since)
         m[k] = {"n": n, "all": _median([_deal_unit(d) for d in rec]) if len(rec) >= 3 else None,
                 "land": lm if ln else None, "ln": ln, "bld": bm if bn else None, "bn": bn,
@@ -1010,7 +1071,7 @@ def write_price_pages(pages, live):
     for d in data.get("deals", []):
         by.setdefault(d["dist"], []).append(d)
     dists = [k for k, v in sorted(by.items(), key=lambda x: -len(x[1]))
-             if k and sum(1 for d in v if not d["special"]) >= MIN_DEALS]
+             if k and sum(1 for d in v if not _special(d)) >= MIN_DEALS]
     for k in dists:
         PRICE_PAGES[k] = f"price/{SLUG.get(k) or 'd-' + hashlib.md5(k.encode()).hexdigest()[:6]}.html"
     out.mkdir(exist_ok=True)

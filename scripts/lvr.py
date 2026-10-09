@@ -87,6 +87,18 @@ def road_of(addr, dist):
     return (m.group(1) + m.group(2)) if m and len(m.group(1)) <= 10 else ""
 
 
+def scrub(note):
+    """備註裡的門牌、地號不公開（只保留交易說明）"""
+    note = re.sub(r"(建物)?(門牌|坐落)[：:][^；;]*", "", note or "")
+    note = re.sub(r"(高雄市)?[一-龥]{0,4}區?[一-龥]{1,8}(?:路|街|大道)[一二三四五六七八九十段]*[\d之\-巷弄]*\d+號(之\d+)?", "", note)
+    note = re.sub(r"[一-龥]{1,6}段[\d\-、]+地號", "", note)
+    note = re.sub(r"(本案|建物坐落)?地號[：:]?[\d\-、]*[，,]?", "", note)
+    note = re.sub(r"[一-龥]{1,8}(?:路|街|大道)[\d]+巷", "", note)
+    note = re.sub(r"\d+號[：:]", "", note)
+    note = re.sub(r"[；;]{2,}", "；", note)
+    return note.strip("；; ")
+
+
 def num(s):
     try:
         return float(str(s).replace(",", ""))
@@ -112,7 +124,7 @@ def slim(r):
         "unit_base": "地坪" if land > 0 else "建坪",
         "built": roc_date((r.get("建築完成年月", "") + "01")[:7]) if r.get("建築完成年月") else "",
         "special": bool(re.search(r"親友|特殊關係|員工|二親等|債權|急買急賣|瑕疵|凶宅|含增建|政府機關", note)),
-        "note": note[:60],
+        "note": scrub(note)[:200],
     }
 
 
