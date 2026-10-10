@@ -15,7 +15,7 @@ if(!OWNER){
   fbq("init",PIXEL_ID);fbq("track","PageView");
 }
 const STD=["ViewContent","Lead","Contact","PageView"];
-function ev(ga,gp,fb,fp){if(OWNER)return;try{if(ga)gtag("event",ga,gp||{});if(fb)fbq(STD.includes(fb)?"track":"trackCustom",fb,fp||{})}catch(e){}}
+function ev(ga,gp,fb,fp){if(OWNER)return;try{if(ga){gp=Object.assign({},gp||{});try{const fa=sessionStorage.getItem("from_article");if(fa)gp.from_article=fa}catch(x){}gtag("event",ga,gp)}if(fb)fbq(STD.includes(fb)?"track":"trackCustom",fb,fp||{})}catch(e){}}
 let firstView=true;
 function pageview(l){
   ev("page_view",{page_title:document.title,page_location:location.href});
@@ -69,6 +69,7 @@ function needGo(){
 }
 function toNeed(e){e.preventDefault();history.pushState({},"","./#need");route()}
 let POSTS=[];
+document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest("a.pcard");if(a)ev("article_click",{article:"/"+a.getAttribute("href"),where:curId?"listing":"home"})});
 fetch("data/posts.json?v="+Math.floor(Date.now()/600000)).then(r=>r.json()).then(d=>{POSTS=(Array.isArray(d)?d:[]).filter(p=>/^a\/[a-z0-9-]+\.html$/.test(p.path)&&/^a\/img\/[a-z0-9_-]+\.jpg$/.test(p.img));const b=document.getElementById("readmore");if(b&&curId){const l=all.find(x=>x.id===curId);if(l)b.outerHTML=readMore(l)}}).catch(()=>{});
 function readMore(l){
   if(!POSTS.length)return '<div id="readmore"></div>';
