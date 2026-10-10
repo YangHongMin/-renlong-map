@@ -69,7 +69,7 @@ function needGo(){
 }
 function toNeed(e){e.preventDefault();history.pushState({},"","./#need");route()}
 let POSTS=[];
-fetch("data/posts.json?v="+Math.floor(Date.now()/600000)).then(r=>r.json()).then(d=>{POSTS=(Array.isArray(d)?d:[]).filter(p=>/^a\/[a-z0-9-]+\.html$/.test(p.path)&&/^a\/img\/[a-z0-9-]+\.jpg$/.test(p.img));const b=document.getElementById("readmore");if(b&&curId){const l=all.find(x=>x.id===curId);if(l)b.outerHTML=readMore(l)}}).catch(()=>{});
+fetch("data/posts.json?v="+Math.floor(Date.now()/600000)).then(r=>r.json()).then(d=>{POSTS=(Array.isArray(d)?d:[]).filter(p=>/^a\/[a-z0-9-]+\.html$/.test(p.path)&&/^a\/img\/[a-z0-9_-]+\.jpg$/.test(p.img));const b=document.getElementById("readmore");if(b&&curId){const l=all.find(x=>x.id===curId);if(l)b.outerHTML=readMore(l)}}).catch(()=>{});
 function readMore(l){
   if(!POSTS.length)return '<div id="readmore"></div>';
   const t=[l.title,l.zoning,l.desc,l.note,catOf(l)].join(" "),want=[];
@@ -91,8 +91,8 @@ function list(){
   document.title="富住通大型工業地產｜高雄工業廠房";msg="我想詢問工業物件";curId="";
   const areas=[...new Set(vis().map(dist).filter(Boolean))];
   $.innerHTML=`<h1>工業廠房・工業用地</h1><div class="chips" id="chips"></div><div class="panel">
-   <label>類別：</label><select id="ft"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
-   <label>區域：</label><select id="fa"><option value="">不限</option>${areas.map(a=>`<option>${esc(a)}</option>`).join("")}</select>
+   <label>類別：</label><select id="ft" aria-label="類別"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
+   <label>區域：</label><select id="fa" aria-label="區域"><option value="">不限</option>${areas.map(a=>`<option>${esc(a)}</option>`).join("")}</select>
    <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><a class="pricebanner" href="price/"><b>📊 高雄工業地實價行情</b><span>各區工業地、廠房最近成交價與地坪單價，每 10 天更新 →</span></a><div class="grid" id="grid"></div>${needBlock()}${joinBlock()}`;
   ["ft","fa"].forEach(i=>{const e=document.getElementById(i);e.value=F[i==="ft"?"type":"area"];e.onchange=draw});
   const k=document.getElementById("fk");k.value=F.kw;k.oninput=draw;draw();
@@ -109,7 +109,7 @@ function draw(){
   const rows=vis().filter(l=>(!F.type||l.type===F.type)&&(!F.cat||catOf(l)===F.cat)&&(!F.area||dist(l)===F.area)&&(!F.kw||[l.title,l.area,l.zoning,l.desc,l.note].join(" ").includes(F.kw)));
   document.getElementById("grid").innerHTML=rows.map((l,n)=>{const p=(l.photos||[])[0];const done=l.status==="已成交";
    return `<a class="card" href="?id=${esc(l.id)}" onclick="go(event,'${esc(l.id)}')"><div class="ph">${p?`<img class="th" src="${esc(thumb(p))}" data-o="${esc(p)}" alt="" width="480" height="360" ${n<2?'fetchpriority="high"':'loading="lazy"'} decoding="async">`:"🏭"}<span class="tag ${done?"done":l.type==="租"?"rent":""}">${done?"已成交":"出"+esc(l.type)}</span></div>
-   <div class="info"><h3>${esc(l.title)}</h3><div class="meta"><span class="cat">${esc(catOf(l))}</span>${esc([l.area,l.zoning,l.land_ping?"土地 "+l.land_ping+" 坪":"",l.build_ping?"建坪 "+l.build_ping+" 坪":""].filter(Boolean).join("｜"))}</div><div class="price">${esc(priceOf(l))}</div></div></a>`}).join("")||"目前沒有符合的物件";
+   <div class="info"><h2>${esc(l.title)}</h2><div class="meta"><span class="cat">${esc(catOf(l))}</span>${esc([l.area,l.zoning,l.land_ping?"土地 "+l.land_ping+" 坪":"",l.build_ping?"建坪 "+l.build_ping+" 坪":""].filter(Boolean).join("｜"))}</div><div class="price">${esc(priceOf(l))}</div></div></a>`}).join("")||"目前沒有符合的物件";
 }
 function detail(l){
   document.title=String(l.title||"")+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;

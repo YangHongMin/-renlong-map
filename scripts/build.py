@@ -282,6 +282,7 @@ def page_html(l):
 <meta property="og:image" content="{og}">
 <meta property="og:url" content="{url}">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <script type="application/ld+json">{jdump(ld)}</script>
 <script>location.replace("../?id={l['id']}")</script>
 </head><body>
@@ -368,12 +369,12 @@ ABOUT = ('關於我們：<a href="https://fulllife5858.com.tw/" target="_blank" 
          '<a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a>｜'
          '<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a>')
 HEAD_NAV = """<header>
- <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
+ <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產" width="1000" height="96"></a></div>
  <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../a/">廠房知識</a><a class="cta" href="../#need">幫我找廠房</a></nav>
 </header>
 <script>(function(){var s=location.pathname.split("/")[1]||"";document.querySelectorAll("header nav a").forEach(function(a){var h=a.getAttribute("href").replace("../","").split("/")[0];if(h&&h===s)a.className+=" on"})})()</script>"""
 FOOT = """<footer><div class="in">
- <img src="../logo.png" alt="富住通商用不動產"><br>
+ <img src="../logo.png" alt="富住通商用不動產" width="1000" height="96"><br>
  <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
  營業員：楊紘珉｜(114)登字第486430號<br>
  {links}<br>
@@ -394,16 +395,21 @@ window.ev=function(n){try{gtag("event",n,{page:location.pathname});fbq("track","
 </script>"""
 
 
-def card_html(l):
+def card_html(l, n=9):
     E = html.escape
     ph = [p for p in (l.get("photos") or []) if re.fullmatch(r"img/[\w\-/.]+", str(p)) and ".." not in p]
-    bg = f' style="background-image:url(\'../{E(ph[0])}\')"' if ph else ""
+    img = ""
+    if ph:
+        t = re.sub(r"[^/]+$", lambda m: "t_" + m.group(0), ph[0])
+        src = t if (ROOT / t).exists() else ph[0]
+        img = (f'<img class="th" src="../{E(src)}" alt="{E(l.get("title", ""))}" width="480" height="360" '
+               + ('fetchpriority="high"' if n < 2 else 'loading="lazy"') + ' decoding="async">')
     meta = "｜".join(x for x in [l.get("area", ""), l.get("zoning", ""),
                                  f"土地 {l['land_ping']} 坪" if l.get("land_ping") else "",
                                  f"建坪 {l['build_ping']} 坪" if l.get("build_ping") else ""] if x)
     tag = "rent" if l.get("type") == "租" else ""
-    return (f'<a class="card" href="../?id={E(l["id"])}"><div class="ph"{bg}>{"" if ph else "🏭"}'
-            f'<span class="tag {tag}">出{E(l.get("type", "售"))}</span></div><div class="info"><h3>{E(l["title"])}</h3>'
+    return (f'<a class="card" href="../?id={E(l["id"])}"><div class="ph">{img or "🏭"}'
+            f'<span class="tag {tag}">出{E(l.get("type", "售"))}</span></div><div class="info"><h2>{E(l["title"])}</h2>'
             f'<div class="meta"><span class="cat">{E(cat_of(l))}</span>{E(meta)}</div>'
             f'<div class="price">{E(price_disp(l))}</div></div></a>')
 
@@ -456,7 +462,9 @@ def landing_html(pg, pages):
 <meta property="og:type" content="website"><meta property="og:title" content="{E(pg['h1'])}｜富住通">
 <meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
 {f'<meta property="og:image" content="{SITE}/{E(items[0]["photos"][0])}">' if items[0].get("photos") else ""}
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="../style.css?v={CSS_V}">
 <script type="application/ld+json">{jdump(ld)}</script>
 {TRACK}
@@ -467,7 +475,7 @@ def landing_html(pg, pages):
 <h1>{E(pg['h1'])}</h1>
 <p>{E(intro)}</p>
 {f'<p class="meta">{E(pg["note"])}實際可作用途仍以主管機關核定與土地使用分區管制規定為準。</p>' if pg["note"] else ""}
-<div class="grid">{"".join(card_html(l) for l in items)}</div>
+<div class="grid">{"".join(card_html(l, i) for i, l in enumerate(items))}</div>
 <div class="join"><div><h3>找{E(pg['short'])}？直接告訴我需求</h3><p>加入官方 LINE，告訴我區域、坪數、預算與用途，有符合的物件會第一時間通知您；新上架與降價也會通知。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 詢問</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
 {(lambda d: f'<p>📊 <a href="../{E(PRICE_PAGES[d])}">看{E(d)}工業地・廠房實價登錄行情</a></p>' if d in PRICE_PAGES else "")(re.sub(r"^.{2}", "", pg["place"])) if pg["kind"] == "area" else ""}
@@ -523,7 +531,7 @@ def update_index(pages):
     s = re.sub(r'href="style\.css(\?v=\w+)?"', f'href="style.css?v={CSS_V}"', s)
     s = re.sub(r'src="app\.js(\?v=\w+)?"', f'src="app.js?v={JS_V}"', s)
     latest = "".join(post_card(p, ti, d, "") for p, ti, d in ARTICLES[:3])
-    pblock = (f'<!--POSTS--><section class="latest" id="latest"><h2>最新廠房知識</h2><div class="pcards">{latest}</div>'
+    pblock = (f'<!--POSTS--><section class="latest" id="latest" hidden><h2>最新廠房知識</h2><div class="pcards">{latest}</div>'
               f'<p><a class="more" href="a/">看全部 {len(ARTICLES)} 篇文章 →</a></p></section><!--/POSTS-->') if ARTICLES else "<!--POSTS--><!--/POSTS-->"
     s = re.sub(r"<!--POSTS-->.*?<!--/POSTS-->", lambda _: pblock, s, flags=re.S)
     block = f"<!--BROWSE-->{browse_links(pages)}<!--/BROWSE-->"
@@ -628,7 +636,9 @@ def article_html(a, path, pages, rel=()):
 <link rel="canonical" href="{url}">
 <meta property="og:type" content="article"><meta property="og:title" content="{E(title)}">
 <meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="../style.css?v={CSS_V}">
 <script type="application/ld+json">{jdump(ld)}</script>
 {TRACK}
@@ -722,10 +732,15 @@ def render_card(a, path):
 POST_KW = ["租", "買", "天車", "物流", "倉", "貨櫃", "挑高", "面寬", "電力", "消防", "丁種", "工業區", "土地", "擴廠", "登記", "仁武", "岡山", "橋頭", "成本"]
 
 
-def post_card(path, title, date, prefix):
+def _post_img(path):
+    t = "a/img/t_" + path[2:-5] + ".jpg"
+    return t if (ROOT / t).exists() else "a/img/" + path[2:-5] + ".jpg"
+
+
+def post_card(path, title, date, prefix, eager=False):
     E = html.escape
-    img = "a/img/" + path[2:-5] + ".jpg"
-    return (f'<a class="pcard" href="{prefix}{E(path)}"><img src="{prefix}{E(img)}" alt="" loading="lazy" width="270" height="338">'
+    img = _post_img(path)
+    return (f'<a class="pcard" href="{prefix}{E(path)}"><img src="{prefix}{E(img)}" alt="" {'fetchpriority="high"' if eager else 'loading="lazy"'} width="432" height="540">'
             f'<span><b>{E(title)}</b><em>{E(date)}</em></span></a>')
 
 
@@ -761,6 +776,15 @@ def write_articles(pages):
                 render_card(a, card)
             except Exception as e:
                 print("CARD FAIL", slug, repr(e))
+        tcard = card.with_name("t_" + card.name)  # 網站列表用小圖（IG 用原圖）
+        if card.exists() and not tcard.exists():
+            try:
+                im = Image.open(card)
+                im.thumbnail((432, 540))
+                im.save(tcard, "JPEG", quality=80, optimize=True)
+            except Exception as e:
+                print("THUMB FAIL", slug, repr(e))
+        cards.add("t_" + slug)
         if a.get("source") == "template" or a.get("hidden"):
             continue  # 範本後備的短文不放網站（內容太薄）
         if sum(len("".join(b)) for b in blocks) < 80:
@@ -784,18 +808,20 @@ def write_articles(pages):
                 f.unlink()
     # 給首頁「最新廠房知識」與物件頁「延伸閱讀」用
     (ROOT / "data" / "posts.json").write_text(jdump([
-        {"path": p, "title": a["_title"], "date": a["date"], "img": "a/img/" + p[2:-5] + ".jpg",
+        {"path": p, "title": a["_title"], "date": a["date"], "img": _post_img(p),
          "kw": "".join(k for k in POST_KW if k in a["_title"] + "".join("".join(b) for b in a["_blocks"])[:600])}
         for p, a in posts]), "utf-8")
     if posts:
         E = html.escape
-        lis = "".join(post_card(p, t, d, "../") for p, t, d in ARTICLES)
+        lis = "".join(post_card(p, t, d, "../", i < 2) for i, (p, t, d) in enumerate(ARTICLES))
         (out / "index.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>廠房知識｜工業地產買賣租賃實務文章｜富住通 楊紘珉</title>
 <meta name="description" content="高雄工業不動產顧問楊紘珉整理的廠房、工業用地買賣租賃實務：選址、電力、消防、使用分區與產業投資觀察。">
 <link rel="canonical" href="{SITE}/a/">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="../style.css?v={CSS_V}">
 {TRACK}
 </head><body>
@@ -957,7 +983,9 @@ def price_page_html(dist, deals, upd, pages, listings):
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{url}">
 <meta property="og:type" content="website"><meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="../style.css?v={CSS_V}">
 <script type="application/ld+json">{jdump(ld)}</script>
 {TRACK}
@@ -1150,7 +1178,9 @@ def write_price_pages(pages, live):
 <title>高雄工業地產實價登錄行情｜各區工業地・廠房成交價｜{E(upd[:7])} 更新</title>
 <meta name="description" content="高雄各區工業區、丁種建築用地、廠房的實價登錄成交行情，依地區整理地坪單價中位數與近期成交。資料來源內政部實價登錄，{E(upd)} 更新。">
 <link rel="canonical" href="{SITE}/price/">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="../style.css?v={CSS_V}">
 {TRACK}
 </head><body>
@@ -1209,7 +1239,9 @@ def write_tools_page():
 <meta name="description" content="{html.escape(desc)}">
 <link rel="canonical" href="{SITE}/tools/">
 <meta property="og:type" content="website"><meta property="og:title" content="工業地產試算工具｜租金稅費・投報率・建蔽容積"><meta property="og:description" content="{html.escape(desc)}"><meta property="og:url" content="{SITE}/tools/">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="../style.css?v={CSS_V}">
 <script type="application/ld+json">{jdump(ld)}</script>
 {TRACK}
@@ -1237,7 +1269,8 @@ def write_site_files(pub, pages=()):
     (ROOT / "all.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>高雄工業廠房・工業用地出售出租物件總覽｜富住通</title>
-<meta name="description" content="富住通商用不動產 新興店 楊紘珉，高雄、仁武、大寮、岡山等地工業廠房與工業用地出售、出租物件清單。">
+<link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="富住通商用不動產 新興店 楊紘珉，高雄、仁武、大寮、岡山等地工業廠房與工業用地出售、出租物件清單，含土地坪數、建坪與價格，LINE 即時諮詢。">
 <link rel="canonical" href="{SITE}/all.html">
 </head><body><h1>工業廠房・工業用地物件總覽</h1>{sec or "<p>目前沒有上架物件</p>"}
 <p><a href="./">回首頁</a>｜洽詢：楊紘珉 0905-858-141｜<a href="https://lin.ee/S6hfHqge">LINE 諮詢</a></p></body></html>
