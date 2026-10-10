@@ -16,10 +16,12 @@ ROOT = pathlib.Path(".")
 OUT = ROOT / "video"
 MANIFEST = ROOT / "data" / "video.json"
 W, H, FPS = 1080, 1920, 30
+MAX_LEN = 29.5          # 影片總長上限（秒）
+TEMPO, MAX_TEMPO = 1.2, 1.35  # 旁白加速倍率（不變音調）；超過 30 秒會再加快或少一個亮點
 NAVY, RED, ORANGE, WHITE = (30, 58, 138), (200, 48, 42), (255, 196, 120), (255, 255, 255)
 VOICE_MODEL, VOICE = "gpt-4o-mini-tts", "onyx"
 VOICE_STYLE = "用台灣口音的華語，像專業的工業不動產顧問在介紹物件，語氣沉穩、清楚、略帶親切，速度適中。"
-VERSION = "v1"  # 改版面時加一，會重做全部影片
+VERSION = "v2"  # v2：語速加快、總長控制在 30 秒內  # 改版面時加一，會重做全部影片
 
 
 def sh(*args):
@@ -216,28 +218,49 @@ def make_video(l, out_path):
     segs = lines_of(l)
     with tempfile.TemporaryDirectory() as td:
         td = pathlib.Path(td)
-        parts, auds = [], []
-        voiced = False
+        raw = {}
         for i, (kind, text, speech) in enumerate(segs):
             a = td / f"a{i}.mp3"
-            has = tts(speech, a)
-            voiced = voiced or has
-            dur = max(dur_of(a) + 0.45 if has else 0, 3.4 if kind == "outro" else 2.6)
+            raw[i] = dur_of(a) if tts(speech, a) else 0.0
+        voiced = any(raw.values())
+
+        def plan(idx, tempo):
+            return {i: max(raw[i] / tempo + 0.2 if raw[i] else 0, 3.0 if segs[i][0] == "outro" else 2.2) for i in idx}
+
+        idx = list(range(len(segs)))
+        tempo = TEMPO
+        while True:
+            d = plan(idx, tempo)
+            if sum(d.values()) <= MAX_LEN:
+                break
+            pts = [i for i in idx if segs[i][0] == "point"]
+            if tempo < MAX_TEMPO:
+                tempo = min(MAX_TEMPO, tempo + 0.05)
+            elif len(pts) > 1:
+                idx.remove(pts[-1])  # 拿掉最後一個亮點
+                tempo = TEMPO
+            else:
+                break
+        parts, auds = [], []
+        for n, i in enumerate(idx):
+            kind, text, speech = segs[i]
+            dur = d[i]
             if kind == "outro":
                 still = td / f"s{i}.png"
                 outro_png(l, still)
                 over = None
             else:
                 still = td / f"s{i}.jpg"
-                photo_frame(photos[i % len(photos)] if kind != "hook" else photos[0], still)
+                photo_frame(photos[n % len(photos)] if kind != "hook" else photos[0], still)
                 over = td / f"o{i}.png"
                 overlay_png(kind, text, l, over)
             v = td / f"v{i}.mp4"
             segment(still, over, dur, v, zoom=kind != "outro")
             parts.append(v)
             w = td / f"w{i}.wav"
-            if has:
-                sh("ffmpeg", "-y", "-i", str(a), "-af", "apad", "-t", f"{dur:.3f}", "-ar", "44100", "-ac", "2", str(w))
+            if raw[i]:
+                sh("ffmpeg", "-y", "-i", str(td / f"a{i}.mp3"), "-af", f"atempo={tempo:.2f},apad", "-t", f"{dur:.3f}",
+                   "-ar", "44100", "-ac", "2", str(w))
             else:
                 sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{dur:.3f}", str(w))
             auds.append(w)
@@ -248,7 +271,8 @@ def make_video(l, out_path):
         out_path.parent.mkdir(exist_ok=True)
         sh("ffmpeg", "-y", "-i", str(td / "v.mp4"), "-i", str(td / "a.wav"), "-c:v", "copy", "-c:a", "aac", "-b:a", "128k",
            "-shortest", "-movflags", "+faststart", str(out_path))
-    print("VIDEO", l["id"], f"{dur_of(out_path):.1f}s", f"{out_path.stat().st_size / 1e6:.1f}MB", "旁白" if voiced else "無聲")
+    print("VIDEO", l["id"], f"{dur_of(out_path):.1f}s", f"{out_path.stat().st_size / 1e6:.1f}MB",
+          f"旁白 x{tempo:.2f}" if voiced else "無聲", f"{sum(1 for i in idx if segs[i][0] == 'point')} 個亮點")
     return voiced
 
 

@@ -42,6 +42,8 @@ const vis=()=>all.filter(l=>l.status!=="待確認");
 const $=document.getElementById("app");
 const dist=l=>(String(l.area||"").match(/[市縣](.+?[區鄉鎮市])/)||[])[1]||"";
 let curId="";
+let VID={};fetch("data/video.json?v="+Math.floor(Date.now()/3600000)).then(r=>r.json()).then(d=>{VID=d&&typeof d==="object"?d:{};if(curId){const l=all.find(x=>x.id===curId);if(l)detail(l)}}).catch(()=>{});
+const vidBlock=l=>{const v=VID[l.id];if(!v||!/^video\/[A-Za-z0-9_-]+\.mp4$/.test(v.path||""))return "";const p=(l.photos||[])[0];return `<div class="vid"><video controls playsinline preload="none" ${p?`poster="${esc(p)}"`:""} src="${esc(v.path)}" onplay="ev('video_play',{item_id:curId})"></video><span>▶ 30 秒看物件重點</span></div>`};
 let PRICE={};fetch("data/lvr/pages.json?v="+Math.floor(Date.now()/3600000)).then(r=>r.json()).then(d=>{PRICE=d&&typeof d==="object"?d:{};if(curId){const l=all.find(x=>x.id===curId);if(l)detail(l)}}).catch(()=>{});
 const priceLink=d=>PRICE[d]&&/^price\/[a-z0-9-]+\.html$/.test(PRICE[d])?`<a class="pricelink" href="${PRICE[d]}">📊 看${esc(d)}工業地・廠房實價登錄行情 →</a>`:"";
 function toast(x){const t=document.getElementById("toast");t.textContent=x;t.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display="none",3500)}
@@ -99,6 +101,7 @@ function detail(l){
   document.title=String(l.title||"")+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;
   const rows=[["編號",l.id],["類別",catOf(l)],["區域",l.area],["價格",priceOf(l)],["使用分區",l.zoning],["基地面積",l.land_ping?l.land_ping+" 坪":""],["建物面積",l.build_ping?l.build_ping+" 坪":""],["備註",l.note]].filter(r=>r[1]);
   $.innerHTML=`<a class="back" href="./" onclick="home(event)">← 回物件列表</a><h1>${esc(l.title)}</h1>
+  ${vidBlock(l)}
   <div class="gal">${(l.photos||[]).map((p,i)=>`<img src="${esc(p)}" ${i?'loading="lazy"':'fetchpriority="high"'} decoding="async" alt="${esc(l.title)}">`).join("")}</div>
   <table>${rows.map(r=>`<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join("")}</table>
   ${priceLink(dist(l))}

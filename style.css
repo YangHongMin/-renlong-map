@@ -85,3 +85,4 @@ table.res{width:100%;border-collapse:collapse;margin:6px 0 10px}table.res th,tab
 .rules{margin-top:6px;font-size:14px;color:#475467}.rules summary{cursor:pointer;color:var(--blue)}.rules li{margin:4px 0}
 .acts{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 16px}.acts .btn{border:0;cursor:pointer;font:inherit}
 #toast{display:none;position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 16px;border-radius:8px;z-index:50;font-size:14px}
+.vid{max-width:360px;margin:6px 0 14px}.vid video{width:100%;aspect-ratio:9/16;border-radius:12px;background:#0d1b3e;display:block}.vid span{display:block;font-size:13px;color:var(--mute);margin-top:4px}
