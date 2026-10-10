@@ -481,7 +481,7 @@ def landing_html(pg, pages):
 <div class="grid">{"".join(card_html(l, i) for i, l in enumerate(items))}</div>
 <div class="join"><div><h3>找{E(pg['short'])}？直接告訴我需求</h3><p>加入官方 LINE，告訴我區域、坪數、預算與用途，有符合的物件會第一時間通知您；新上架與降價也會通知。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 詢問</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
-{(lambda d: f'<p>📊 <a href="../{E(PRICE_PAGES[d])}">看{E(d)}工業地・廠房實價登錄行情</a></p>' if d in PRICE_PAGES else "")(re.sub(r"^.{2}", "", pg["place"])) if pg["kind"] == "area" else ""}
+{(lambda d: f'<p>📊 <a href="../{E(PRICE_PAGES[d])}">看{E(pname(d))}工業地・廠房實價登錄行情</a></p>' if d in PRICE_PAGES else "")(lkey_l(pg["items"][0]) if pg["items"] else "") if pg["kind"] == "area" else ""}
 {f'<h2>其他地區與類型</h2><p>{links}</p>' if links else ""}
 </main>
 {FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
@@ -519,7 +519,7 @@ def browse_links(pages, prefix=""):
         out.append("依類型：" + "｜".join(f'<a href="{prefix}{E(p["path"])}">{E(p["short"])}</a>' for p in t))
     extra = []
     if PRICE_PAGES:
-        extra.append(f'<a href="{prefix}price/">高雄工業地實價行情</a>')
+        extra.append(f'<a href="{prefix}price/">南部工業地實價行情</a>')
     if ARTICLES:
         extra.append(f'<a href="{prefix}a/">廠房知識文章</a>')
     if extra:
@@ -851,8 +851,31 @@ def write_articles(pages):
 
 
 # ---------- 實價登錄行情頁（資料由 scripts/lvr.py 從內政部開放資料下載）----------
-LVR = ROOT / "data" / "lvr" / "kaohsiung_industrial.json"
-PRICE_PAGES = {}  # 區名 -> 路徑
+LVR = ROOT / "data" / "lvr" / "south_industrial.json"
+LVR_OLD = ROOT / "data" / "lvr" / "kaohsiung_industrial.json"
+PRICE_PAGES = {}  # 鍵 -> 路徑；高雄用區名（仁武區），其他縣市用縣市＋區名（台南市永康區）
+KCOUNTY = {}  # 鍵 -> 縣市
+COUNTY_ORDER = ["高雄市", "台南市", "屏東縣", "嘉義縣", "嘉義市"]
+OTHER_SLUG = {"屏東縣佳冬鄉": "pingtung-jiadong", "屏東縣竹田鄉": "pingtung-zhutian", "屏東縣萬丹鄉": "pingtung-wandan", "屏東縣屏東市": "pingtung-city", "屏東縣潮州鎮": "pingtung-chaozhou", "屏東縣長治鄉": "pingtung-zhangzhi", "屏東縣麟洛鄉": "pingtung-linluo", "屏東縣九如鄉": "pingtung-jiuru", "屏東縣里港鄉": "pingtung-ligang", "屏東縣鹽埔鄉": "pingtung-yanpu", "屏東縣高樹鄉": "pingtung-gaoshu", "屏東縣萬巒鄉": "pingtung-wanluan", "屏東縣內埔鄉": "pingtung-neipu", "屏東縣新埤鄉": "pingtung-xinpi", "屏東縣崁頂鄉": "pingtung-kanding", "屏東縣南州鄉": "pingtung-nanzhou", "屏東縣琉球鄉": "pingtung-liuqiu", "屏東縣三地門鄉": "pingtung-sandimen", "屏東縣霧台鄉": "pingtung-wutai", "屏東縣瑪家鄉": "pingtung-majia", "屏東縣泰武鄉": "pingtung-taiwu", "屏東縣來義鄉": "pingtung-laiyi", "屏東縣春日鄉": "pingtung-chunri", "屏東縣獅子鄉": "pingtung-shizi", "屏東縣東港鎮": "pingtung-donggang", "屏東縣枋寮鄉": "pingtung-fangliao", "屏東縣新園鄉": "pingtung-xinyuan", "屏東縣林邊鄉": "pingtung-linbian", "屏東縣車城鄉": "pingtung-checheng", "屏東縣滿州鄉": "pingtung-manzhou", "屏東縣枋山鄉": "pingtung-fangshan", "屏東縣牡丹鄉": "pingtung-mudan", "屏東縣恆春鎮": "pingtung-hengchun", "嘉義縣太保市": "chiayi-county-taibao", "嘉義縣中埔鄉": "chiayi-county-zhongpu", "嘉義縣番路鄉": "chiayi-county-fanlu", "嘉義縣水上鄉": "chiayi-county-shuishang", "嘉義縣東石鄉": "chiayi-county-dongshi", "嘉義縣朴子市": "chiayi-county-puzi", "嘉義縣大林鎮": "chiayi-county-dalin", "嘉義縣民雄鄉": "chiayi-county-minxiong", "嘉義縣溪口鄉": "chiayi-county-xikou", "嘉義縣新港鄉": "chiayi-county-xingang", "嘉義縣六腳鄉": "chiayi-county-liujiao", "嘉義縣義竹鄉": "chiayi-county-yizhu", "嘉義縣鹿草鄉": "chiayi-county-lucao", "嘉義縣竹崎鄉": "chiayi-county-zhuqi", "嘉義縣梅山鄉": "chiayi-county-meishan", "嘉義縣大埔鄉": "chiayi-county-dabu", "嘉義縣阿里山鄉": "chiayi-county-alishan", "嘉義縣布袋鎮": "chiayi-county-budai", "台南市新營區": "tainan-xinying", "台南市鹽水區": "tainan-yanshui", "台南市白河區": "tainan-baihe", "台南市後壁區": "tainan-houbi", "台南市麻豆區": "tainan-madou", "台南市下營區": "tainan-xiaying", "台南市六甲區": "tainan-liujia", "台南市官田區": "tainan-guantian", "台南市大內區": "tainan-danei", "台南市佳里區": "tainan-jiali", "台南市學甲區": "tainan-xuejia", "台南市西港區": "tainan-xigang", "台南市新化區": "tainan-xinhua", "台南市新市區": "tainan-xinshi", "台南市安定區": "tainan-anding", "台南市玉井區": "tainan-yujing", "台南市楠西區": "tainan-nanxi", "台南市南化區": "tainan-nanhua", "台南市左鎮區": "tainan-zuozhen", "台南市仁德區": "tainan-rende", "台南市歸仁區": "tainan-guiren", "台南市關廟區": "tainan-guanmiao", "台南市龍崎區": "tainan-longqi", "台南市永康區": "tainan-yongkang", "台南市北區": "tainan-north", "台南市北門區": "tainan-beimen", "台南市安南區": "tainan-annan", "台南市南區": "tainan-south", "台南市東區": "tainan-east", "台南市安平區": "tainan-anping", "台南市中西區": "tainan-zhongxi", "台南市善化區": "tainan-shanhua", "台南市山上區": "tainan-shanshang", "台南市柳營區": "tainan-liuying", "台南市東山區": "tainan-dongshan", "台南市七股區": "tainan-qigu", "台南市將軍區": "tainan-jiangjun", "嘉義市東區": "chiayi-city-east", "嘉義市西區": "chiayi-city-west"}
+
+
+def lkey(d):
+    """實價資料的地區鍵"""
+    c = d.get("county") or "高雄市"
+    return d["dist"] if c == "高雄市" else c + d["dist"]
+
+
+def lkey_l(l):
+    """物件的地區鍵（同 lkey）"""
+    m = re.match(r"(.{2,3}?[市縣])(.{1,4}?[區鄉鎮市])", str(l.get("area", "")).replace("臺", "台"))
+    if not m:
+        return ""
+    return m.group(2) if m.group(1) == "高雄市" else m.group(1) + m.group(2)
+
+
+def pname(k):
+    """頁面上的地區名稱：高雄的區加上「高雄」"""
+    return ("高雄" + k) if KCOUNTY.get(k, "高雄市") == "高雄市" else k
 MIN_DEALS = 5
 
 
@@ -973,17 +996,19 @@ def price_page_html(dist, deals, upd, pages, listings):
         f"<td>{_bp(d)}</td>"
         f"<td>{E(_wan(d['total_wan']))}</td><td><b>{(f"{_deal_unit(d):g}" if _deal_unit(d) else "—")}</b></td><td>{_bunit(d)}</td><td class=\"tgs\">{_tags_html(d)}</td></tr>"
         for d in deals[:50])
-    area = next((p for p in pages if p["kind"] == "area" and p["place"].endswith(dist)), None)
-    mine = [l for l in listings if loc(l)[1] == dist]
+    area = next((p for p in pages if p["kind"] == "area" and any(lkey_l(x) == dist for x in p["items"])), None)
+    mine = [l for l in listings if lkey_l(l) == dist]
+    name = pname(dist)
     mine_html = ""
     if area:
-        mine_html = f'<p>👉 目前我在{E(dist)}的物件：<a href="../{E(area["path"])}">{E(area["h1"])}</a></p>'
+        mine_html = f'<p>👉 目前我在{E(name)}的物件：<a href="../{E(area["path"])}">{E(area["h1"])}</a></p>'
     elif mine:
-        mine_html = "<p>👉 目前我在" + E(dist) + "的物件：" + "、".join(
+        mine_html = "<p>👉 目前我在" + E(name) + "的物件：" + "、".join(
             f'<a href="../p/{E(l["id"])}.html">{E(l["title"])}</a>' for l in mine) + "</p>"
-    others = "｜".join(f'<a href="../{E(p)}">{E(k)}</a>' for k, p in PRICE_PAGES.items() if k != dist)
-    title = f"高雄{dist}工業地・廠房實價登錄行情"
-    desc = (f"{dist}近一年工業類成交 {n} 筆。土地：{_stat_text(lm, ln)}；廠房（房地）：{_stat_text(bm, bn)}。"
+    others = "｜".join(f'<a href="../{E(p)}">{E(pname(k))}</a>' for k, p in PRICE_PAGES.items()
+                      if k != dist and KCOUNTY.get(k) == KCOUNTY.get(dist))
+    title = f"{name}工業地・廠房實價登錄行情"
+    desc = (f"{name}近一年工業類成交 {n} 筆。土地：{_stat_text(lm, ln)}；廠房（房地）：{_stat_text(bm, bn)}。"
             f"資料來源內政部實價登錄，{upd} 更新。")
     ld = [{"@context": "https://schema.org", "@type": "WebPage", "name": title, "url": url, "dateModified": upd,
            "description": desc},
@@ -1007,7 +1032,7 @@ def price_page_html(dist, deals, upd, pages, listings):
 </head><body>
 {HEAD_NAV}
 <main>
-<a class="back" href="./">← 高雄工業地產實價行情</a>
+<a class="back" href="./">← 南部工業地產實價行情</a>
 <h1>{E(title)}</h1>
 <div class="stats"><div><span>近一年成交</span><b>{n} 筆</b></div><div><span>土地 地坪單價中位數</span><b>{E(_stat_text(lm, ln))}</b></div><div><span>廠房（房地） 地坪單價中位數</span><b>{E(_stat_text(bm, bn))}</b></div></div>
 <p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數，建坪單價＝總價÷建物坪數（兩者都含土地與建物價值，廠房小、土地大時建坪單價會偏高），單位：萬元。灰色列是特殊交易（親友、政府標售、含公設保留地、含租約等，依實價登錄備註判斷），共 {sp} 筆，不列入中位數與圖表；備註寫明土地、建物分開計價的，另外標出各自的每坪單價。位置只顯示到路名，土地交易不顯示位置。</p>
@@ -1018,7 +1043,7 @@ def price_page_html(dist, deals, upd, pages, listings):
 <div class="tbl"><table class="deals"><thead><tr><th>年月</th><th>位置</th><th>標的</th><th>分區</th><th>土地坪</th><th>建坪</th><th>總價</th><th>地坪單價</th><th>建坪單價</th><th>備註</th></tr></thead><tbody>{rows}</tbody></table></div>
 <div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>實價登錄只看得到成交價，看不到屋況、面寬、電力和路寬。加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
-{f'<h2>其他地區實價行情</h2><p>{others}</p>' if others else ""}
+{f'<h2>{E(KCOUNTY.get(dist, ""))}其他地區實價行情</h2><p>{others}</p>' if others else ""}
 </main>
 {FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="./">實價行情總覽</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
 </body></html>
@@ -1117,13 +1142,13 @@ def map_block(by, upd, live):
                 "land": lm if ln else None, "ln": ln, "bld": bm if bn else None, "bn": bn,
                 "page": PRICE_PAGES.get(k, ""), "mine": []}
     for l in live:
-        c, d = loc(l)
-        if c == "高雄" and d in m:
+        d = lkey_l(l)
+        if d in m:
             m[d]["mine"].append({"id": l["id"], "t": l["title"]})
-        elif c == "高雄" and d:
+        elif d:
             m[d] = {"n": 0, "all": None, "land": None, "ln": 0, "bld": None, "bn": 0, "page": "", "mine": [{"id": l["id"], "t": l["title"]}]}
     (ROOT / "data" / "lvr" / "map.json").write_text(json.dumps(m, ensure_ascii=False), "utf-8")
-    return """<div class="mapwrap"><div id="pmap" role="img" aria-label="高雄各區工業地地坪單價地圖"></div><div class="maplegend" id="pleg"></div></div>
+    return """<div class="mapwrap"><div id="pmap" role="img" aria-label="嘉義以南各區工業地地坪單價地圖"></div><div class="maplegend" id="pleg"></div></div>
 <p class="meta">顏色越深＝近一年工業地・廠房地坪單價中位數越高（萬／地坪）；灰色＝成交少於 3 筆。🏭＝目前有我的物件。點地區看詳細。</p>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -1131,7 +1156,7 @@ def map_block(by, upd, live):
 (function(){
 var RAMP=["#b7d3f6","#86b6ef","#3987e5","#1c5cab","#0d366b"],NODATA="#e5e4df";
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
-Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){return r.json()}),fetch("../data/lvr/map.json").then(function(r){return r.json()})]).then(function(a){
+Promise.all([fetch("../data/lvr/south_districts.geojson").then(function(r){return r.json()}),fetch("../data/lvr/map.json").then(function(r){return r.json()})]).then(function(a){
  var geo=a[0],M=a[1],vals=Object.keys(M).map(function(k){return M[k].all}).filter(function(v){return v}).sort(function(x,y){return x-y});
  var br=[1,2,3,4].map(function(i){return vals[Math.floor(vals.length*i/5)]});
  function col(v){if(!v)return NODATA;for(var i=0;i<4;i++)if(v<br[i])return RAMP[i];return RAMP[4]}
@@ -1160,17 +1185,24 @@ Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){r
 def write_price_pages(pages, live):
     PRICE_PAGES.clear()
     out = ROOT / "price"
-    if not LVR.exists():
+    KCOUNTY.clear()
+    src = LVR if LVR.exists() else LVR_OLD
+    if not src.exists():
         return
-    data = json.loads(LVR.read_text("utf-8"))
+    data = json.loads(src.read_text("utf-8"))
     upd = data.get("updated") or datetime.date.today().isoformat()
     by = {}
     for d in data.get("deals", []):
-        by.setdefault(d["dist"], []).append(d)
+        if not d.get("dist"):
+            continue
+        k = lkey(d)
+        KCOUNTY[k] = d.get("county") or "高雄市"
+        by.setdefault(k, []).append(d)
     dists = [k for k, v in sorted(by.items(), key=lambda x: -len(x[1]))
              if k and sum(1 for d in v if not _special(d)) >= MIN_DEALS]
     for k in dists:
-        PRICE_PAGES[k] = f"price/{SLUG.get(k) or 'd-' + hashlib.md5(k.encode()).hexdigest()[:6]}.html"
+        sl = SLUG.get(k) if KCOUNTY[k] == "高雄市" else OTHER_SLUG.get(k)
+        PRICE_PAGES[k] = f"price/{sl or 'd-' + hashlib.md5(k.encode()).hexdigest()[:6]}.html"
     out.mkdir(exist_ok=True)
     keep = set()
     for k in dists:
@@ -1180,18 +1212,36 @@ def write_price_pages(pages, live):
         if f.name != "index.html" and f"price/{f.name}" not in keep:
             f.unlink()
     map_html = map_block(by, upd, live)
-    (ROOT / "data" / "lvr" / "pages.json").write_text(json.dumps(PRICE_PAGES, ensure_ascii=False), "utf-8")  # 給 app.js 用
+    # 給 app.js 用（物件頁用「區名」查）：高雄用區名；其他縣市另外加上不重複的區名別名
+    pj = dict(PRICE_PAGES)
+    bare = {}
+    for k in PRICE_PAGES:
+        if KCOUNTY[k] != "高雄市":
+            bare.setdefault(k[3:], []).append(k)
+    for b, ks in bare.items():
+        if len(ks) == 1 and b not in pj:
+            pj[b] = PRICE_PAGES[ks[0]]
+    (ROOT / "data" / "lvr" / "pages.json").write_text(json.dumps(pj, ensure_ascii=False), "utf-8")
     E = html.escape
     since = (datetime.date.fromisoformat(upd) - datetime.timedelta(days=365)).isoformat()
-    trs = ""
-    for k in dists:
-        n, (lm, ln), (bm, bn) = _stats(by[k], since)
-        trs += (f'<tr><td><a href="../{E(PRICE_PAGES[k])}">{E(k)}</a></td><td>{n}</td>'
-                f'<td>{f"{lm:g}" if ln else "—"}</td><td>{f"{bm:g}" if bn else "—"}</td></tr>')
+    tables = ""
+    for cty in COUNTY_ORDER:
+        ks = [k for k in dists if KCOUNTY[k] == cty]
+        if not ks:
+            continue
+        trs = ""
+        for k in ks:
+            n, (lm, ln), (bm, bn) = _stats(by[k], since)
+            label = k if cty == "高雄市" else k[3:]
+            trs += (f'<tr><td><a href="../{E(PRICE_PAGES[k])}">{E(label)}</a></td><td>{n}</td>'
+                    f'<td>{f"{lm:g}" if ln else "—"}</td><td>{f"{bm:g}" if bn else "—"}</td></tr>')
+        tables += (f'<h3 id="{E(cty)}">{E(cty)}</h3><div class="tbl"><table class="deals"><thead><tr><th>地區</th><th>近一年成交筆數</th>'
+                   f'<th>土地中位數<br>（萬／地坪）</th><th>廠房中位數<br>（萬／地坪）</th></tr></thead><tbody>{trs}</tbody></table></div>')
+    jump = "｜".join(f'<a href="#{E(c)}">{E(c)}</a>' for c in COUNTY_ORDER if any(KCOUNTY[k] == c for k in dists))
     (out / "index.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>高雄工業地產實價登錄行情｜各區工業地・廠房成交價｜{E(upd[:7])} 更新</title>
-<meta name="description" content="高雄各區工業區、丁種建築用地、廠房的實價登錄成交行情，依地區整理地坪單價中位數與近期成交。資料來源內政部實價登錄，{E(upd)} 更新。">
+<title>高雄・台南・屏東・嘉義工業地產實價登錄行情｜各區工業地・廠房成交價｜{E(upd[:7])} 更新</title>
+<meta name="description" content="嘉義以南（高雄、台南、屏東、嘉義）各區工業區、丁種建築用地、廠房的實價登錄成交行情，依地區整理地坪單價中位數與近期成交。資料來源內政部實價登錄，{E(upd)} 更新。">
 <link rel="canonical" href="{SITE}/price/">
 <link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1200,11 +1250,12 @@ def write_price_pages(pages, live):
 {TRACK}
 </head><body>
 {HEAD_NAV}
-<main><h1>高雄工業地產實價登錄行情</h1>
-<p>整理高雄各區工業區、丁種建築用地與廠房的實價登錄成交，每 10 天自動更新。點地區看近期每一筆成交。</p>
+<main><h1>南部工業地產實價登錄行情</h1>
+<p>整理嘉義以南（高雄、台南、屏東、嘉義）各區工業區、丁種建築用地與廠房的實價登錄成交，每 10 天自動更新。點地區看近期每一筆成交。</p>
 {map_html}
 <h2>各區行情一覽</h2>
-<div class="tbl"><table class="deals"><thead><tr><th>地區</th><th>近一年成交筆數</th><th>土地中位數<br>（萬／地坪）</th><th>廠房中位數<br>（萬／地坪）</th></tr></thead><tbody>{trs}</tbody></table></div>
+<p>{jump}</p>
+{tables}
 <p class="meta">資料來源：內政部實價登錄開放資料，{E(upd)} 更新。地坪單價＝總價÷土地坪數（房地含建物價值），已排除政府標售、親友等特殊交易。</p>
 <div class="join"><div><h3>想知道你的廠房、土地現在值多少？</h3><p>加 LINE 告訴我地段與坪數，我幫你對照近期成交，免費給你行情建議。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>

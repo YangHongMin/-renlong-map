@@ -1,4 +1,4 @@
-"""下載內政部實價登錄開放資料（買賣），篩出高雄市工業相關成交，存成 data/lvr/kaohsiung_industrial.json。
+"""下載內政部實價登錄開放資料（買賣），篩出嘉義以南（嘉義市、嘉義縣、台南市、高雄市、屏東縣）工業相關成交，存成 data/lvr/south_industrial.json。
 
 資料來源：內政部不動產成交案件實際資訊（政府資料開放授權條款第 1 版）。
 GitHub Actions 每 10 天執行一次（實價登錄每月 1、11、21 日發布）。
@@ -6,8 +6,9 @@ GitHub Actions 每 10 天執行一次（實價登錄每月 1、11、21 日發布
 import csv, io, json, re, sys, time, zipfile, datetime, pathlib, urllib.request
 
 ROOT = pathlib.Path(".")
-OUT = ROOT / "data" / "lvr" / "kaohsiung_industrial.json"
-CITY = "e"  # 高雄市
+OUT = ROOT / "data" / "lvr" / "south_industrial.json"
+OLD = ROOT / "data" / "lvr" / "kaohsiung_industrial.json"  # 舊檔（只有高雄），第一次執行時併進來
+CITIES = {"e": "高雄市", "d": "台南市", "t": "屏東縣", "i": "嘉義市", "q": "嘉義縣"}
 BASE = "https://plvr.land.moi.gov.tw"
 UA = {"User-Agent": "Mozilla/5.0 (fulllife.blog open-data fetcher)"}
 QUARTERS = 8  # 往回抓 8 季（約 2 年）
@@ -37,9 +38,9 @@ def seasons(n):
     return out
 
 
-def rows_from_zip(blob):
+def rows_from_zip(blob, city):
     z = zipfile.ZipFile(io.BytesIO(blob))
-    name = next((n for n in z.namelist() if n.lower() == f"{CITY}_lvr_land_a.csv"), None)
+    name = next((n for n in z.namelist() if n.lower() == f"{city}_lvr_land_a.csv"), None)
     if not name:
         return []
     text = z.read(name).decode("utf-8-sig", errors="replace")
@@ -106,7 +107,7 @@ def num(s):
         return 0.0
 
 
-def slim(r):
+def slim(r, county):
     dist = r.get("鄉鎮市區", "")
     land = num(r.get("土地移轉總面積平方公尺")) * 0.3025
     build = num(r.get("建物移轉總面積平方公尺")) * 0.3025
@@ -116,7 +117,7 @@ def slim(r):
     zone = r.get("都市土地使用分區", "") or r.get("非都市土地使用編定", "") or r.get("非都市土地使用分區", "")
     base_ping = land if land > 0 else build  # 工業地產習慣看「地坪單價」（含建物價值）
     return {
-        "id": r.get("編號", ""), "date": roc_date(r.get("交易年月日")), "dist": dist,
+        "id": r.get("編號", ""), "date": roc_date(r.get("交易年月日")), "county": county, "dist": dist,
         "road": road_of(r.get("土地位置建物門牌", ""), dist), "kind": kind,
         "zone": zone, "btype": r.get("建物型態", ""), "use": r.get("主要用途", ""),
         "land_ping": round(land, 1), "build_ping": round(build, 1),
@@ -130,8 +131,10 @@ def slim(r):
 
 def main():
     found = {}
-    old = json.loads(OUT.read_text("utf-8")) if OUT.exists() else {"deals": []}
-    for d in old.get("deals", []):  # 保留舊資料（超過 8 季的仍留 3 年），套用目前的篩選
+    src = OUT if OUT.exists() else OLD
+    old = json.loads(src.read_text("utf-8")) if src.exists() else {"deals": []}
+    for d in old.get("deals", []):
+        d.setdefault("county", "高雄市")  # 保留舊資料（超過 8 季的仍留 3 年），套用目前的篩選
         if not RESI.search(d.get("btype", "")) and "住" not in d.get("zone", ""):
             found[d["id"]] = d
     urls = [f"{BASE}/Download?type=zip&fileName=lvr_landcsv.zip"] + [
@@ -142,9 +145,12 @@ def main():
         if not blob or blob[:2] != b"PK":
             print("SKIP", u, len(blob or b""))
             continue
-        rows = rows_from_zip(blob)
-        ind = [slim(r) for r in rows if is_industrial(r)]
-        print("OK", u.split("?")[-1][:40], "rows", len(rows), "industrial", len(ind))
+        ind = []
+        for code, county in CITIES.items():
+            rows = rows_from_zip(blob, code)
+            got = [slim(r, county) for r in rows if is_industrial(r)]
+            print("OK", u.split("?")[-1][:40], county, "rows", len(rows), "industrial", len(got))
+            ind += got
         for d in ind:
             if d["id"] and d["date"]:
                 found[d["id"]] = d
@@ -159,6 +165,8 @@ def main():
     OUT.write_text(json.dumps({"updated": datetime.date.today().isoformat(),
                                "source": "內政部不動產成交案件實際資訊（實價登錄）開放資料",
                                "deals": deals}, ensure_ascii=False, indent=1), "utf-8")
+    if OLD.exists() and OUT.exists():
+        OLD.unlink()
     print("saved", len(deals))
 
 

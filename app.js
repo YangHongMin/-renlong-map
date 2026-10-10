@@ -94,7 +94,7 @@ function list(){
   $.innerHTML=`<h1>工業廠房・工業用地</h1><div class="chips" id="chips"></div><div class="panel">
    <label>類別：</label><select id="ft" aria-label="類別"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
    <label>區域：</label><select id="fa" aria-label="區域"><option value="">不限</option>${areas.map(a=>`<option>${esc(a)}</option>`).join("")}</select>
-   <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><a class="pricebanner" href="price/"><b>📊 高雄工業地實價行情</b><span>各區工業地、廠房最近成交價與地坪單價，每 10 天更新 →</span></a><div class="grid" id="grid"></div>${needBlock()}${joinBlock()}`;
+   <label>關鍵字：</label><input id="fk" placeholder="輸入關鍵字"><button onclick="draw()">我要查詢</button></div><a class="pricebanner" href="price/"><b>📊 南部工業地實價行情</b><span>高雄・台南・屏東・嘉義各區工業地、廠房成交價與地坪單價，每 10 天更新 →</span></a><div class="grid" id="grid"></div>${needBlock()}${joinBlock()}`;
   ["ft","fa"].forEach(i=>{const e=document.getElementById(i);e.value=F[i==="ft"?"type":"area"];e.onchange=draw});
   const k=document.getElementById("fk");k.value=F.kw;k.oninput=draw;draw();
   document.getElementById("n_go").onclick=needGo;
