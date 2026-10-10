@@ -1,0 +1,35 @@
+name: make-video
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: "物件編號（空白分隔，例如 IND-013；留空＝全部需要更新的）"
+        required: false
+        default: ""
+concurrency:
+  group: build-listings
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install python-pptx pillow openai
+      - run: sudo apt-get install -y -q fonts-noto-cjk ffmpeg >/dev/null
+      - run: python scripts/video.py ${{ github.event.inputs.ids }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add video data/video.json
+          if ! git diff --cached --quiet; then
+            git commit -m "auto: 物件短片"
+            git pull --rebase
+            git push
+          fi

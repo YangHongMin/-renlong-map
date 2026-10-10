@@ -25,6 +25,12 @@ jobs:
       - run: python scripts/build.py
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      # 物件短片：上架物件沒有影片或資料有變才會重做
+      - run: sudo apt-get install -y -q ffmpeg >/dev/null
+      - run: python scripts/video.py
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       - if: always()
         run: |
           git config user.name "bot"
