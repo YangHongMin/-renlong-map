@@ -247,7 +247,7 @@ def seo_kw(l):
 def page_html(l):
     E = html.escape
     ph = [p for p in (l.get("photos") or []) if re.fullmatch(r"img/[\w\-/.]+", str(p)) and ".." not in p]
-    t = l["title"] + "｜" + seo_kw(l) + "｜富住通"
+    t = l["title"] + "｜" + seo_kw(l) + "｜廠房知識+"
     meta = [price_disp(l), l.get("area", ""), l.get("zoning", "")]
     if l.get("land_ping"): meta.append(f"土地{l['land_ping']}坪")
     if l.get("build_ping"): meta.append(f"建坪{l['build_ping']}坪")
@@ -459,10 +459,10 @@ def landing_html(pg, pages):
     return f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{E(pg['h1'])}｜{len(items)} 筆物件｜富住通 楊紘珉</title>
+<title>{E(pg['h1'])}｜{len(items)} 筆物件｜廠房知識+ 楊紘珉</title>
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{url}">
-<meta property="og:type" content="website"><meta property="og:title" content="{E(pg['h1'])}｜富住通">
+<meta property="og:type" content="website"><meta property="og:title" content="{E(pg['h1'])}｜廠房知識+">
 <meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
 {f'<meta property="og:image" content="{SITE}/{E(items[0]["photos"][0])}">' if items[0].get("photos") else ""}
 <link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -643,7 +643,7 @@ def article_html(a, path, pages, rel=()):
     return f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{E(title)}｜廠房知識｜富住通 楊紘珉</title>
+<title>{E(title)}｜廠房知識+ 楊紘珉</title>
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{url}">
 <meta property="og:type" content="article"><meta property="og:title" content="{E(title)}">
@@ -831,7 +831,7 @@ def write_articles(pages):
         lis = "".join(post_card(p, t, d, "../", i < 2) for i, (p, t, d) in enumerate(ARTICLES))
         (out / "index.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>廠房知識｜工業地產買賣租賃實務文章｜富住通 楊紘珉</title>
+<title>廠房知識文章｜工業地產買賣租賃實務｜廠房知識+ 楊紘珉</title>
 <meta name="description" content="高雄工業不動產顧問楊紘珉整理的廠房、工業用地買賣租賃實務：選址、電力、消防、使用分區與產業投資觀察。">
 <link rel="canonical" href="{SITE}/a/">
 <link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -994,7 +994,7 @@ def price_page_html(dist, deals, upd, pages, listings):
     return f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{E(title)}｜{E(upd[:7])} 更新｜富住通 楊紘珉</title>
+<title>{E(title)}｜{E(upd[:7])} 更新｜廠房知識+ 楊紘珉</title>
 <meta name="description" content="{E(desc)}">
 <link rel="canonical" href="{url}">
 <meta property="og:type" content="website"><meta property="og:title" content="{E(title)}"><meta property="og:description" content="{E(desc)}"><meta property="og:url" content="{url}">
@@ -1245,7 +1245,7 @@ def write_privacy_page():
     (ROOT / "privacy" / "index.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>隱私權政策｜富住通商用不動產 大型工業地產</title>
+<title>隱私權政策｜廠房知識+</title>
 <meta name="description" content="富住通商用不動產（fulllife.blog）網站與「廠房知識+」頻道的隱私權政策：蒐集哪些資料、用途、第三方服務與聯絡方式。">
 <link rel="canonical" href="{SITE}/privacy/">
 <link rel="icon" href="/favicon.png" type="image/png">
@@ -1292,7 +1292,7 @@ def write_tools_page():
     (ROOT / "tools" / "index.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>廠房租金稅費試算・投報率・建蔽率容積率計算機｜富住通 楊紘珉</title>
+<title>廠房租金稅費試算・投報率・建蔽率容積率計算機｜廠房知識+ 楊紘珉</title>
 <meta name="description" content="{html.escape(desc)}">
 <link rel="canonical" href="{SITE}/tools/">
 <meta property="og:type" content="website"><meta property="og:title" content="工業地產試算工具｜租金稅費・投報率・建蔽容積"><meta property="og:description" content="{html.escape(desc)}"><meta property="og:url" content="{SITE}/tools/">
@@ -1325,7 +1325,7 @@ def write_site_files(pub, pages=()):
         sec += "<h2>依地區・類型瀏覽</h2><p>" + browse_links(pages) + "</p>"
     (ROOT / "all.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>高雄工業廠房・工業用地出售出租物件總覽｜富住通</title>
+<title>高雄工業廠房・工業用地出售出租物件總覽｜廠房知識+</title>
 <link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="description" content="富住通商用不動產 新興店 楊紘珉，高雄、仁武、大寮、岡山等地工業廠房與工業用地出售、出租物件清單，含土地坪數、建坪與價格，LINE 即時諮詢。">
 <link rel="canonical" href="{SITE}/all.html">

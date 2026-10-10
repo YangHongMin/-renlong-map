@@ -89,7 +89,7 @@ function route(){const q=new URLSearchParams(location.search),id=q.get("id"),pv=
 function go(e,id){e.preventDefault();history.pushState({},"","?id="+id);route();scrollTo(0,0)}
 function home(e){e.preventDefault();history.pushState({},"","./");route()}
 function list(){
-  document.title="富住通大型工業地產｜高雄工業廠房";msg="我想詢問工業物件";curId="";
+  document.title="高雄工業廠房・工業用地｜廠房知識+";msg="我想詢問工業物件";curId="";
   const areas=[...new Set(vis().map(dist).filter(Boolean))];
   $.innerHTML=`<h1>工業廠房・工業用地</h1><div class="chips" id="chips"></div><div class="panel">
    <label>類別：</label><select id="ft" aria-label="類別"><option value="">不限</option><option value="售">出售</option><option value="租">出租</option></select>
@@ -113,7 +113,7 @@ function draw(){
    <div class="info"><h2>${esc(l.title)}</h2><div class="meta"><span class="cat">${esc(catOf(l))}</span>${esc([l.area,l.zoning,l.land_ping?"土地 "+l.land_ping+" 坪":"",l.build_ping?"建坪 "+l.build_ping+" 坪":""].filter(Boolean).join("｜"))}</div><div class="price">${esc(priceOf(l))}</div></div></a>`}).join("")||"目前沒有符合的物件";
 }
 function detail(l){
-  document.title=String(l.title||"")+"｜富住通大型工業地產";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;
+  document.title=String(l.title||"")+"｜廠房知識+";msg="我想詢問物件 "+l.id+"｜"+l.title;curId=l.id;
   const rows=[["編號",l.id],["類別",catOf(l)],["區域",l.area],["價格",priceOf(l)],["使用分區",l.zoning],["基地面積",l.land_ping?l.land_ping+" 坪":""],["建物面積",l.build_ping?l.build_ping+" 坪":""],["備註",l.note]].filter(r=>r[1]);
   $.innerHTML=`<a class="back" href="./" onclick="home(event)">← 回物件列表</a><h1>${esc(l.title)}</h1>
   ${vidBlock(l)}
