@@ -21,7 +21,7 @@ TEMPO, MAX_TEMPO = 1.2, 1.35  # 旁白加速倍率（不變音調）；超過 30
 NAVY, RED, ORANGE, WHITE = (30, 58, 138), (200, 48, 42), (255, 196, 120), (255, 255, 255)
 VOICE_MODEL, VOICE = "gpt-4o-mini-tts", "onyx"
 VOICE_STYLE = "用台灣口音的華語，像專業的工業不動產顧問在介紹物件，語氣沉穩、清楚、略帶親切，速度適中。"
-VERSION = "v2"  # v2：語速加快、總長控制在 30 秒內  # 改版面時加一，會重做全部影片
+VERSION = "v3"  # v3：音訊 48kHz（FB Reels 規格）  # 改版面時加一，會重做全部影片
 
 
 def sh(*args):
@@ -260,9 +260,9 @@ def make_video(l, out_path):
             w = td / f"w{i}.wav"
             if raw[i]:
                 sh("ffmpeg", "-y", "-i", str(td / f"a{i}.mp3"), "-af", f"atempo={tempo:.2f},apad", "-t", f"{dur:.3f}",
-                   "-ar", "44100", "-ac", "2", str(w))
+                   "-ar", "48000", "-ac", "2", str(w))
             else:
-                sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo", "-t", f"{dur:.3f}", str(w))
+                sh("ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo", "-t", f"{dur:.3f}", str(w))
             auds.append(w)
         (td / "v.txt").write_text("".join(f"file '{p}'\n" for p in parts))
         (td / "a.txt").write_text("".join(f"file '{p}'\n" for p in auds))
