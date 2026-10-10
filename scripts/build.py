@@ -367,7 +367,8 @@ def landing_defs(live):
 ABOUT = ('關於我們：<a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a>｜'
          '<a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a>｜'
          '<a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a>｜'
-         '<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a>')
+         '<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a>｜'
+         '<a href="../privacy/">隱私權政策</a>')
 HEAD_NAV = """<header>
  <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產" width="1000" height="96"></a></div>
  <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../a/">廠房知識</a><a class="cta" href="../#need">幫我找廠房</a></nav>
@@ -1212,6 +1213,7 @@ def write_share_pages(data):
     write_price_pages([], live_l)  # 先算出行情頁路徑，地區專頁才能連過去
     pages = write_landing(live_l)
     write_articles(pages)
+    write_privacy_page()
     write_price_pages(pages, live_l)
     live = set()
     for l in pub:
@@ -1223,6 +1225,47 @@ def write_share_pages(data):
             f.unlink()
     update_index(pages)
     write_site_files(pub, pages)
+
+
+def write_privacy_page():
+    """隱私權政策（GA／Meta Pixel 說明，並供 Google OAuth／YouTube API 審核使用）"""
+    (ROOT / "privacy").mkdir(exist_ok=True)
+    (ROOT / "privacy" / "index.html").write_text(f"""<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>隱私權政策｜富住通商用不動產 大型工業地產</title>
+<meta name="description" content="富住通商用不動產（fulllife.blog）網站與「廠房知識+」頻道的隱私權政策：蒐集哪些資料、用途、第三方服務與聯絡方式。">
+<link rel="canonical" href="{SITE}/privacy/">
+<link rel="icon" href="/favicon.png" type="image/png">
+<link rel="stylesheet" href="../style.css?v={CSS_V}">
+{TRACK}
+</head><body>
+{HEAD_NAV}
+<main class="article">
+<h1>隱私權政策</h1>
+<p class="meta">最後更新：2026-10-10</p>
+<p>本政策適用於 fulllife.blog 網站，以及由富住通商用不動產 新興店 營業員楊紘珉經營的 Facebook 粉絲專頁、Instagram、Threads 與 YouTube 頻道「廠房知識+」（以下合稱「本服務」）。</p>
+<h2>一、我們蒐集哪些資料</h2>
+<ul>
+<li><b>匿名瀏覽統計</b>：本網站使用 Google Analytics 與 Meta Pixel，記錄瀏覽的頁面、點擊（例如按下 LINE、電話按鈕）、裝置類型與大約地區等匿名統計資料，不包含您的姓名或聯絡方式。</li>
+<li><b>您主動提供的資料</b>：本網站不設會員、不直接收集表單資料。「找不到合適的？」需求表只會在您的裝置上整理文字，再由您自行貼到 LINE 傳送；您透過 LINE 或電話提供的資訊，僅用於回覆您的物件需求。</li>
+</ul>
+<h2>二、資料用途</h2>
+<p>匿名統計資料用於了解哪些物件與文章對訪客有幫助、改善網站內容與廣告成效；不會出售或提供給無關的第三方。</p>
+<h2>三、第三方服務</h2>
+<ul>
+<li>Google Analytics：<a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google 隱私權政策</a></li>
+<li>Meta（Facebook／Instagram／Threads）：<a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noopener">Meta 隱私權政策</a></li>
+<li>YouTube：本服務使用 YouTube API 服務，僅用於將我們自行製作的物件影片上傳到自己的 YouTube 頻道，不會讀取、儲存或分享任何 YouTube 觀眾的個人資料。使用 YouTube 即表示您同意 <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 服務條款</a>，相關資料處理適用 <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google 隱私權政策</a>。您可隨時透過 <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google 安全性設定頁面</a> 撤銷授權。</li>
+</ul>
+<h2>四、Cookie 與退出方式</h2>
+<p>您可在瀏覽器設定中封鎖或刪除 Cookie，或安裝 <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google Analytics 停用外掛程式</a>，不影響瀏覽物件資訊。</p>
+<h2>五、聯絡我們</h2>
+<p>對本政策有任何疑問，或希望刪除您曾透過 LINE 提供的資料，請聯絡：楊紘珉（富住通商用不動產 新興店）｜電話 0905-858-141｜LINE 官方帳號 @447lrpzt。</p>
+</main>
+{FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
+</body></html>
+""", "utf-8")
 
 
 def write_tools_page():
