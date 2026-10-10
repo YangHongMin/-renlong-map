@@ -364,23 +364,23 @@ def landing_defs(live):
     return pages
 
 
-ABOUT = ('關於我們：<a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a>｜'
+ABOUT = ('<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">廠房知識+ 粉絲專頁</a>｜'
+         '<a href="../privacy/">隱私權政策</a><br>'
+         '所屬公司：<a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">富住通官網</a>｜'
          '<a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a>｜'
-         '<a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a>｜'
-         '<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a>｜'
-         '<a href="../privacy/">隱私權政策</a>')
+         '<a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a>')
 HEAD_NAV = """<header>
- <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產" width="1000" height="96"></a></div>
+ <div class="bar"><a class="brand" href="../"><img src="../brand-mark.png" alt="" width="44" height="44"><span>廠房知識</span><i>+</i></a></div>
  <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../a/">廠房知識</a><a class="cta" href="../#need">幫我找廠房</a></nav>
 </header>
 <script>(function(){var s=location.pathname.split("/")[1]||"";document.querySelectorAll("header nav a").forEach(function(a){var h=a.getAttribute("href").replace("../","").split("/")[0];if(h&&h===s)a.className+=" on"})})()</script>"""
 FOOT = """<footer><div class="in">
- <img src="../logo.png" alt="富住通商用不動產" width="1000" height="96"><br>
- <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
- 營業員：楊紘珉｜(114)登字第486430號<br>
+ <div class="fbrand"><img src="../brand-mark.png" alt="" width="40" height="40"><b>廠房知識+</b><span>高雄工業地產・看懂再出手</span></div>
  {links}<br>
- """ + ABOUT + """<br>
- <span style="opacity:.75">本網站資料僅供參考，實際內容以現場及契約為準</span><br><span style="opacity:.75;font-size:12px">本網站使用 Google Analytics 與 Meta Pixel 蒐集匿名瀏覽統計，用於了解網站使用情形與廣告成效。</span>
+ """ + ABOUT + """
+ <div class="corp"><small>所屬經紀業</small><img src="../logo.png" alt="富住通商用不動產" width="1000" height="96">
+ <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>營業員：楊紘珉｜(114)登字第486430號</div>
+ <span style="opacity:.8">本站為營業員楊紘珉經營之工業物件介紹網站，非公司官方網站。資料僅供參考，實際內容以現場及契約為準。</span><br><span style="opacity:.75;font-size:12px">本網站使用 Google Analytics 與 Meta Pixel 蒐集匿名瀏覽統計，用於了解網站使用情形與廣告成效。</span>
 </div></footer>"""
 # 與 app.js 相同的 GA4 / Pixel 設定；管理者本人（is_owner）不計入
 TRACK = """<script>
@@ -537,6 +537,15 @@ def update_index(pages):
     pblock = (f'<!--POSTS--><section class="latest" id="latest" hidden><h2>最新廠房知識</h2><div class="pcards">{latest}</div>'
               f'<p><a class="more" href="a/">看全部 {len(ARTICLES)} 篇文章 →</a></p></section><!--/POSTS-->') if ARTICLES else "<!--POSTS--><!--/POSTS-->"
     s = re.sub(r"<!--POSTS-->.*?<!--/POSTS-->", lambda _: pblock, s, flags=re.S)
+    try:
+        ls = json.loads((ROOT / "data" / "listings.json").read_text("utf-8"))
+        ls = ls if isinstance(ls, list) else ls.get("listings", [])
+        n_items = sum(1 for l in ls if l.get("status") == "上架")
+    except Exception:
+        n_items = 0
+    stats = "".join(f"<div><b>{v}</b><span>{k}</span></div>" for k, v in
+                    [("在架物件", n_items), ("篇實務文章", len(ARTICLES)), ("區實價行情", len(PRICE_PAGES))] if v)
+    s = re.sub(r"<!--STATS-->.*?<!--/STATS-->", lambda _: f'<!--STATS--><div class="hstats">{stats}</div><!--/STATS-->' if stats else "<!--STATS--><!--/STATS-->", s, flags=re.S)
     block = f"<!--BROWSE-->{browse_links(pages)}<!--/BROWSE-->"
     if "<!--BROWSE-->" in s:
         s = re.sub(r"<!--BROWSE-->.*?<!--/BROWSE-->", lambda _: block, s, flags=re.S)
@@ -629,7 +638,7 @@ def article_html(a, path, pages, rel=()):
           "dateModified": a["date"], "mainEntityOfPage": url, "inLanguage": "zh-Hant",
           "author": {"@type": "Person", "name": "楊紘珉", "jobTitle": "工業不動產顧問",
                      "worksFor": {"@type": "RealEstateAgent", "name": "富住通商用不動產 新興店"}},
-          "publisher": {"@type": "Organization", "name": "富住通商用不動產", "logo": {"@type": "ImageObject", "url": f"{SITE}/logo.png"}}}
+          "publisher": {"@type": "Organization", "name": "廠房知識+", "logo": {"@type": "ImageObject", "url": f"{SITE}/brand-mark.png"}}}
     more = "｜".join(f'<a href="../{E(p["path"])}">{E(p["short"])}</a>' for p in pages)
     return f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
@@ -693,12 +702,12 @@ def render_card(a, path):
     """IG 用 1080x1350 圖卡：深藍底、標題、最多三個重點、署名與 LINE。"""
     from PIL import ImageDraw
     W, H, M = 1080, 1350, 90
-    navy, red, white, soft = (30, 58, 138), (200, 48, 42), (255, 255, 255), (214, 222, 240)
+    navy, red, white, soft = (15, 44, 68), (78, 226, 254), (255, 255, 255), (199, 228, 238)
     im = Image.new("RGB", (W, H), navy)
     d = ImageDraw.Draw(im)
     d.rectangle([0, 0, W, 18], fill=red)
     strip = lambda t: re.sub(r"[\U00010000-\U0010FFFF☀-➿️]", "", t).strip()
-    d.text((M, 120), "廠房知識＋", font=_font(40), fill=(255, 196, 120))
+    d.text((M, 120), "廠房知識＋", font=_font(40), fill=(78, 226, 254))
     y = 200
     tf = _font(76)
     title = strip(a["_title"]).rstrip("。")
@@ -708,7 +717,9 @@ def render_card(a, path):
     d.rectangle([M, y + 20, M + 120, y + 28], fill=red)
     y += 80
     pts = [strip(re.sub(r"^[✔✅▪•・\-]\s*", "", x)) for b in a["_blocks"] for x in b if re.match(r"^[✔✅▪•・\-]", x)]
-    if not pts:  # 沒有條列就用第一段
+    if not pts:  # 沒有條列就用小標（第一，… 一、… ①…）
+        pts = [strip(SUBHEAD.sub("", b[0])).rstrip("。") for b in a["_blocks"] if b and SUBHEAD.match(b[0]) and len(b[0]) <= 42]
+    if not pts:  # 都沒有就用第一段
         pts = [strip(" ".join(a["_blocks"][0]))] if a["_blocks"] else []
     pts = [t for t in pts if t and t.rstrip("。") != title and "你會怎麼看" not in t]
     bf = _font(42, bold=False)
@@ -716,19 +727,20 @@ def render_card(a, path):
         lines = _wrap(d, t, bf, W - 2 * M - 50)[:3]
         if y + 60 * len(lines) > H - 260:
             break
-        d.ellipse([M, y + 18, M + 16, y + 34], fill=(255, 196, 120))
+        d.ellipse([M, y + 18, M + 16, y + 34], fill=(78, 226, 254))
         for ln in lines:
             d.text((M + 50, y), ln, font=bf, fill=soft)
             y += 60
         y += 30
-    d.rectangle([0, H - 200, W, H], fill=(22, 44, 108))
+    d.rectangle([0, H - 200, W, H], fill=(10, 33, 51))
     try:
-        logo = Image.open(ROOT / "logo.png").convert("RGBA")
-        logo.thumbnail((620, 70))
-        im.paste(logo, (M, H - 165), logo)
+        mark = Image.open(ROOT / "brand-mark.png").convert("RGBA").resize((120, 120), Image.LANCZOS)
+        im.paste(mark, (M, H - 160), mark)
+        tx = M + 145
     except Exception:
-        d.text((M, H - 165), "富住通商用不動產", font=_font(48), fill=white)
-    d.text((M, H - 80), "楊紘珉｜LINE 官方帳號 @447lrpzt", font=_font(34, bold=False), fill=soft)
+        tx = M
+    d.text((tx, H - 158), "廠房知識＋", font=_font(46), fill=white)
+    d.text((tx, H - 90), "楊紘珉｜富住通商用不動產 新興店｜LINE @447lrpzt", font=_font(28, bold=False), fill=soft)
     path.parent.mkdir(parents=True, exist_ok=True)
     im.save(path, "JPEG", quality=88, optimize=True)
 

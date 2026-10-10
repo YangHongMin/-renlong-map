@@ -85,7 +85,7 @@ function readMore(l){
 }
 fetch("data/listings.json?v="+Math.floor(Date.now()/60000)).then(r=>r.json()).then(d=>{all=sanitize(d);route()}).catch(()=>{$.textContent="資料載入失敗，請稍後再試。"});
 window.addEventListener("popstate",route);
-function route(){const q=new URLSearchParams(location.search),id=q.get("id"),pv=q.get("preview")==="1";const l=all.find(x=>x.id===id&&(x.status!=="待確認"||pv));l?detail(l):list();const lt=document.getElementById("latest");if(lt)lt.hidden=!!l;pageview(l)}
+function route(){const q=new URLSearchParams(location.search),id=q.get("id"),pv=q.get("preview")==="1";const l=all.find(x=>x.id===id&&(x.status!=="待確認"||pv));l?detail(l):list();const lt=document.getElementById("latest");if(lt)lt.hidden=!!l;const hr=document.getElementById("hero");if(hr)hr.hidden=!!l;pageview(l)}
 function go(e,id){e.preventDefault();history.pushState({},"","?id="+id);route();scrollTo(0,0)}
 function home(e){e.preventDefault();history.pushState({},"","./");route()}
 function list(){

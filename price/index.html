@@ -6,7 +6,7 @@
 <link rel="icon" href="/favicon.png" type="image/png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link rel="stylesheet" href="../style.css?v=6e31ab42">
+<link rel="stylesheet" href="../style.css?v=cebb0e5c">
 <script>
 (function(){var OWNER=false;try{OWNER=localStorage.getItem("is_owner")==="1"}catch(e){}
 window.ev=function(){};if(OWNER)return;
@@ -22,7 +22,7 @@ document.addEventListener("click",function(e){var a=e.target.closest&&e.target.c
 </script>
 </head><body>
 <header>
- <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產" width="1000" height="96"></a></div>
+ <div class="bar"><a class="brand" href="../"><img src="../brand-mark.png" alt="" width="44" height="44"><span>廠房知識</span><i>+</i></a></div>
  <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../a/">廠房知識</a><a class="cta" href="../#need">幫我找廠房</a></nav>
 </header>
 <script>(function(){var s=location.pathname.split("/")[1]||"";document.querySelectorAll("header nav a").forEach(function(a){var h=a.getAttribute("href").replace("../","").split("/")[0];if(h&&h===s)a.className+=" on"})})()</script>
@@ -67,11 +67,11 @@ Promise.all([fetch("../data/lvr/kaohsiung_districts.geojson").then(function(r){r
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 免費估價</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
 </main>
 <footer><div class="in">
- <img src="../logo.png" alt="富住通商用不動產" width="1000" height="96"><br>
- <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
- 營業員：楊紘珉｜(114)登字第486430號<br>
+ <div class="fbrand"><img src="../brand-mark.png" alt="" width="40" height="40"><b>廠房知識+</b><span>高雄工業地產・看懂再出手</span></div>
  <a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a><br>
- 關於我們：<a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a>｜<a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a>｜<a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a>｜<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a>｜<a href="../privacy/">隱私權政策</a><br>
- <span style="opacity:.75">本網站資料僅供參考，實際內容以現場及契約為準</span><br><span style="opacity:.75;font-size:12px">本網站使用 Google Analytics 與 Meta Pixel 蒐集匿名瀏覽統計，用於了解網站使用情形與廣告成效。</span>
+ <a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">廠房知識+ 粉絲專頁</a>｜<a href="../privacy/">隱私權政策</a><br>所屬公司：<a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">富住通官網</a>｜<a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a>｜<a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a>
+ <div class="corp"><small>所屬經紀業</small><img src="../logo.png" alt="富住通商用不動產" width="1000" height="96">
+ <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>營業員：楊紘珉｜(114)登字第486430號</div>
+ <span style="opacity:.8">本站為營業員楊紘珉經營之工業物件介紹網站，非公司官方網站。資料僅供參考，實際內容以現場及契約為準。</span><br><span style="opacity:.75;font-size:12px">本網站使用 Google Analytics 與 Meta Pixel 蒐集匿名瀏覽統計，用於了解網站使用情形與廣告成效。</span>
 </div></footer>
 </body></html>
