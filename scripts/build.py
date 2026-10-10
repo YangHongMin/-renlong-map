@@ -363,15 +363,21 @@ def landing_defs(live):
     return pages
 
 
+ABOUT = ('關於我們：<a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a>｜'
+         '<a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a>｜'
+         '<a href="https://fulllife5858.com.tw/transaction.aspx" target="_blank" rel="noopener">成交指標</a>｜'
+         '<a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a>')
 HEAD_NAV = """<header>
  <div class="bar"><a href="../"><img src="../logo.png" alt="富住通商用不動產 大型工業地產"></a></div>
- <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../#need">找不到合適的？</a><a href="https://fulllife5858.com.tw/analysis.aspx" target="_blank" rel="noopener">市場分析</a><a href="https://fulllife5858.com.tw/" target="_blank" rel="noopener">公司官網</a><a href="https://www.facebook.com/profile.php?id=61573837941258" target="_blank" rel="noopener">粉絲專頁</a></nav>
-</header>"""
+ <nav><a href="../">工業物件</a><a href="../price/">實價行情</a><a href="../tools/">試算工具</a><a href="../a/">廠房知識</a><a class="cta" href="../#need">幫我找廠房</a></nav>
+</header>
+<script>(function(){var s=location.pathname.split("/")[1]||"";document.querySelectorAll("header nav a").forEach(function(a){var h=a.getAttribute("href").replace("../","").split("/")[0];if(h&&h===s)a.className+=" on"})})()</script>"""
 FOOT = """<footer><div class="in">
  <img src="../logo.png" alt="富住通商用不動產"><br>
  <b>富茂通商用不動產股份有限公司</b>（富住通商用不動產 新興店）<br>
  營業員：楊紘珉｜(114)登字第486430號<br>
  {links}<br>
+ """ + ABOUT + """<br>
  <span style="opacity:.75">本網站資料僅供參考，實際內容以現場及契約為準</span><br><span style="opacity:.75;font-size:12px">本網站使用 Google Analytics 與 Meta Pixel 蒐集匿名瀏覽統計，用於了解網站使用情形與廣告成效。</span>
 </div></footer>"""
 # 與 app.js 相同的 GA4 / Pixel 設定；管理者本人（is_owner）不計入
@@ -516,6 +522,10 @@ def update_index(pages):
     s = f.read_text("utf-8")
     s = re.sub(r'href="style\.css(\?v=\w+)?"', f'href="style.css?v={CSS_V}"', s)
     s = re.sub(r'src="app\.js(\?v=\w+)?"', f'src="app.js?v={JS_V}"', s)
+    latest = "".join(post_card(p, ti, d, "") for p, ti, d in ARTICLES[:3])
+    pblock = (f'<!--POSTS--><section class="latest" id="latest"><h2>最新廠房知識</h2><div class="pcards">{latest}</div>'
+              f'<p><a class="more" href="a/">看全部 {len(ARTICLES)} 篇文章 →</a></p></section><!--/POSTS-->') if ARTICLES else "<!--POSTS--><!--/POSTS-->"
+    s = re.sub(r"<!--POSTS-->.*?<!--/POSTS-->", lambda _: pblock, s, flags=re.S)
     block = f"<!--BROWSE-->{browse_links(pages)}<!--/BROWSE-->"
     if "<!--BROWSE-->" in s:
         s = re.sub(r"<!--BROWSE-->.*?<!--/BROWSE-->", lambda _: block, s, flags=re.S)
@@ -540,7 +550,8 @@ def clean_caption(cap):
         if m and not head:
             head = m.group(1)
             continue
-        if t.startswith("📩") or "LINE 官方帳號" in t or re.fullmatch(r"(#\S+\s*)+", t):
+        if t.startswith(("📩", "📞", "💬", "楊紘珉｜", "專注高雄工業不動產", "如需詳細照片", "---", "專業商用不動產顧問", "諮詢專線")) \
+                or t in ("富住通商用不動產",) or "LINE 官方帳號" in t or re.fullmatch(r"(#\S+\s*)+", t.strip('"')):
             continue
         if "延伸閱讀" in t:
             news = re.sub(r"^\W*延伸閱讀[:：]\s*", "", t)
@@ -572,17 +583,36 @@ def _links_html(txt):
             title = re.sub(r"^\d+\.\s*", "", x)
     return f'<h2>本週新聞來源</h2><ul class="alist">{"".join(items)}</ul>' if items else ""
 
+BUL = re.compile(r"^(?:[✔✅▪•・\-]|\d+\.\s)")
+SUBHEAD = re.compile(r"^(?:第[一二三四五六七八九十]+[，、]|[一二三四五六七八九十]+、|[①②③④⑤⑥⑦⑧⑨])")
 
-def article_html(a, path, pages):
+
+def _block_html(b):
+    """FB 段落 → HTML：「第一，…」「一、…」「①…」當小標；✔/・/1. 當條列"""
+    E = html.escape
+    out = ""
+    if len(b) >= 1 and SUBHEAD.match(b[0]) and len(b[0]) <= 42:
+        out += f"<h2>{E(b[0])}</h2>"
+        b = b[1:]
+    lead = [x for x in b if not BUL.match(x)]
+    items = [x for x in b if BUL.match(x)]
+    if items and all(BUL.match(x) for x in b[len(b) - len(items):]) and len(lead) == len(b) - len(items):
+        if lead:
+            out += "<p>" + "<br>".join(E(x) for x in lead) + "</p>"
+        tag = "ol" if all(re.match(r"^\d+\.", x) for x in items) else "ul"
+        out += f"<{tag}>" + "".join(f"<li>{E(re.sub(r'^(?:[✔✅▪•・-]|\d+\.)\s*', '', x))}</li>" for x in items) + f"</{tag}>"
+    elif b:
+        out += "<p>" + "<br>".join(E(x) for x in b) + "</p>"
+    return out
+
+
+def article_html(a, path, pages, rel=()):
     E = html.escape
     url = f"{SITE}/{path}"
     title = a["_title"]
     body = ""
     for b in a["_blocks"]:
-        if all(re.match(r"^[✔✅▪•・\-]", x) for x in b):
-            body += "<ul>" + "".join(f"<li>{E(re.sub(r'^[✔✅▪•・-]\s*', '', x))}</li>" for x in b) + "</ul>"
-        else:
-            body += "<p>" + "<br>".join(E(x) for x in b) + "</p>"
+        body += _block_html(b)
     desc = re.sub(r"\s+", " ", " ".join(" ".join(b) for b in a["_blocks"]))[:110]
     ld = {"@context": "https://schema.org", "@type": "Article", "headline": title, "datePublished": a["date"],
           "dateModified": a["date"], "mainEntityOfPage": url, "inLanguage": "zh-Hant",
@@ -613,6 +643,7 @@ def article_html(a, path, pages):
 {_links_html(a.get("links", ""))}
 <div class="join"><div><h3>想找廠房、土地，或評估手上的物件？</h3><p>加入官方 LINE，直接告訴我區域、坪數、預算與用途；新物件上架也會第一時間通知您。</p>
 <div class="btns"><a class="btn line" href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener" onclick="ev('line_click')">LINE 詢問</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click')">0905-858-141</a></div></div><img class="qr" src="../line_qr.png" alt="LINE 官方帳號 QR Code"></div>
+{('<h2>相關文章</h2><div class="pcards">' + "".join(post_card(p, t, d, "../") for p, t, d in rel) + '</div>') if rel else ""}
 {f'<h2>目前的物件</h2><p>{more}</p>' if more else ""}
 </main>
 {FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="./">廠房知識文章</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
@@ -688,6 +719,24 @@ def render_card(a, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     im.save(path, "JPEG", quality=88, optimize=True)
 
+POST_KW = ["租", "買", "天車", "物流", "倉", "貨櫃", "挑高", "面寬", "電力", "消防", "丁種", "工業區", "土地", "擴廠", "登記", "仁武", "岡山", "橋頭", "成本"]
+
+
+def post_card(path, title, date, prefix):
+    E = html.escape
+    img = "a/img/" + path[2:-5] + ".jpg"
+    return (f'<a class="pcard" href="{prefix}{E(path)}"><img src="{prefix}{E(img)}" alt="" loading="lazy" width="270" height="338">'
+            f'<span><b>{E(title)}</b><em>{E(date)}</em></span></a>')
+
+
+def _related(a, path, posts, n=3):
+    """同關鍵字最多的文章優先，再補最新的"""
+    txt = lambda x: x["_title"] + "".join("".join(b) for b in x["_blocks"])
+    mine = {k for k in POST_KW if k in txt(a)}
+    others = [(p, x) for p, x in posts if p != path]
+    others.sort(key=lambda px: (len(mine & {k for k in POST_KW if k in txt(px[1])}), px[1]["date"]), reverse=True)
+    return [(p, x["_title"], x["date"]) for p, x in others[:n]]
+
 
 def write_articles(pages):
     ARTICLES.clear()
@@ -722,20 +771,25 @@ def write_articles(pages):
             if f.stem not in cards:
                 f.unlink()
     keep = set()
+    posts.sort(key=lambda x: (x[1]["date"], str(x[1].get("topicId", ""))), reverse=True)
+    ARTICLES.extend((p, a["_title"], a["date"]) for p, a in posts)
     if posts:
         out.mkdir(exist_ok=True)
     for path, a in posts:
-        (ROOT / path).write_text(article_html(a, path, pages), "utf-8")
+        (ROOT / path).write_text(article_html(a, path, pages, _related(a, path, posts)), "utf-8")
         keep.add(path)
     if out.exists():
         for f in out.glob("*.html"):
             if f.name != "index.html" and f"a/{f.name}" not in keep:
                 f.unlink()
-    posts.sort(key=lambda x: x[1]["date"], reverse=True)
-    ARTICLES.extend((p, a["_title"], a["date"]) for p, a in posts)
+    # 給首頁「最新廠房知識」與物件頁「延伸閱讀」用
+    (ROOT / "data" / "posts.json").write_text(jdump([
+        {"path": p, "title": a["_title"], "date": a["date"], "img": "a/img/" + p[2:-5] + ".jpg",
+         "kw": "".join(k for k in POST_KW if k in a["_title"] + "".join("".join(b) for b in a["_blocks"])[:600])}
+        for p, a in posts]), "utf-8")
     if posts:
         E = html.escape
-        lis = "".join(f'<li><a href="../{E(p)}">{E(t)}</a> <span class="meta">{E(d)}</span></li>' for p, t, d in ARTICLES)
+        lis = "".join(post_card(p, t, d, "../") for p, t, d in ARTICLES)
         (out / "index.html").write_text(f"""<!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>廠房知識｜工業地產買賣租賃實務文章｜富住通 楊紘珉</title>
@@ -747,7 +801,7 @@ def write_articles(pages):
 </head><body>
 {HEAD_NAV}
 <main class="article"><h1>廠房知識</h1><p>買廠房、租廠房、找工業用地之前，值得先知道的實務重點。每篇都是工業不動產現場常遇到的問題。</p>
-<ul class="alist">{lis}</ul></main>
+<div class="pcards">{lis}</div></main>
 {FOOT.format(links='<a href="../all.html">全部物件清單</a>｜<a href="https://lin.ee/S6hfHqge" target="_blank" rel="noopener">LINE 官方帳號</a>')}
 </body></html>
 """, "utf-8")

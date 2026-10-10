@@ -68,9 +68,23 @@ function needGo(){
   ev("need_form_submit",{need_type:t},"NeedForm",{need_type:t}); // 只送需求類別，不送內容
 }
 function toNeed(e){e.preventDefault();history.pushState({},"","./#need");route()}
+let POSTS=[];
+fetch("data/posts.json?v="+Math.floor(Date.now()/600000)).then(r=>r.json()).then(d=>{POSTS=(Array.isArray(d)?d:[]).filter(p=>/^a\/[a-z0-9-]+\.html$/.test(p.path)&&/^a\/img\/[a-z0-9-]+\.jpg$/.test(p.img));const b=document.getElementById("readmore");if(b&&curId){const l=all.find(x=>x.id===curId);if(l)b.outerHTML=readMore(l)}}).catch(()=>{});
+function readMore(l){
+  if(!POSTS.length)return '<div id="readmore"></div>';
+  const t=[l.title,l.zoning,l.desc,l.note,catOf(l)].join(" "),want=[];
+  if(l.type==="租")want.push("租");else want.push("買");
+  if(/丁/.test(l.zoning||""))want.push("丁種");
+  if(/[甲乙]種?工|工業區/.test(l.zoning||""))want.push("工業區");
+  if(/土地/.test(catOf(l)+l.title))want.push("土地");
+  ["天車","物流","倉","貨櫃","挑高","面寬","電力","仁武","岡山","橋頭"].forEach(k=>{if(t.includes(k))want.push(k)});
+  const sc=p=>want.filter(k=>(p.kw||"").includes(k)).length;
+  const pick=POSTS.map((p,i)=>[sc(p),-i,p]).sort((a,b)=>b[0]-a[0]||b[1]-a[1]).slice(0,2).map(x=>x[2]);
+  return `<div id="readmore" class="readmore"><h2>延伸閱讀</h2><div class="pcards">${pick.map(p=>`<a class="pcard" href="${esc(p.path)}"><img src="${esc(p.img)}" alt="" loading="lazy" width="270" height="338"><span><b>${esc(p.title)}</b><em>${esc(p.date)}</em></span></a>`).join("")}</div></div>`;
+}
 fetch("data/listings.json?v="+Math.floor(Date.now()/60000)).then(r=>r.json()).then(d=>{all=sanitize(d);route()}).catch(()=>{$.textContent="資料載入失敗，請稍後再試。"});
 window.addEventListener("popstate",route);
-function route(){const q=new URLSearchParams(location.search),id=q.get("id"),pv=q.get("preview")==="1";const l=all.find(x=>x.id===id&&(x.status!=="待確認"||pv));l?detail(l):list();pageview(l)}
+function route(){const q=new URLSearchParams(location.search),id=q.get("id"),pv=q.get("preview")==="1";const l=all.find(x=>x.id===id&&(x.status!=="待確認"||pv));l?detail(l):list();const lt=document.getElementById("latest");if(lt)lt.hidden=!!l;pageview(l)}
 function go(e,id){e.preventDefault();history.pushState({},"","?id="+id);route();scrollTo(0,0)}
 function home(e){e.preventDefault();history.pushState({},"","./");route()}
 function list(){
@@ -109,5 +123,5 @@ function detail(l){
   ${l.status==="已成交"?"":`<div class="contact"><img src="avatar.jpg" alt="楊紘珉"><div><b>楊紘珉</b><div class="sub">富住通商用不動產｜大型工業地產</div>
    <div>0905-858-141｜0978-133-561</div><div class="btns"><a class="btn line" href="${LINE_URL}" target="_blank" rel="noopener" onclick="lineGo('detail')">LINE 詢問這個物件</a><a class="btn tel" href="tel:0905858141" onclick="ev('call_click',{item_id:curId},'Contact')">撥打電話</a></div>
    <div class="sub" style="margin-top:6px">按 LINE 會自動複製物件編號，到 LINE 貼上傳送即可。</div></div></div>`}
-  <p><a href="./#need" onclick="toNeed(event)" style="color:var(--blue)">找不到合適的？告訴我您的需求</a></p>${joinBlock()}`;
+  <p><a href="./#need" onclick="toNeed(event)" style="color:var(--blue)">找不到合適的？告訴我您的需求</a></p>${readMore(l)}${joinBlock()}`;
 }
